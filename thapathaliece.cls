@@ -24,29 +24,72 @@
     listof=totoc,
     listof=flat,
     listof=nochaptergap,
+    listof=entryprefix,
     bibliography=totoc,
     parskip=false  % Disable KOMA's paragraph spacing adjustments
 ]{scrreprt}
 
-% ESSENTIAL PACKAGES
-\RequirePackage[T1]{fontenc}
-\RequirePackage[utf8]{inputenc}
-\RequirePackage[american]{babel}
-\RequirePackage{xspace}
-\RequirePackage{amsmath, amsfonts}
+% ============================================================
+% LANGUAGE SUPPORT (must be loaded early)
+% ============================================================
+\RequirePackage[english]{babel} % English language support - load before other packages
+
+% ============================================================
+% FONTS
+% ============================================================
+\RequirePackage[T1]{fontenc}    % Proper font encoding
+\RequirePackage[utf8]{inputenc} % UTF-8 encoding
+\RequirePackage{amsmath, amssymb, amsfonts} % Math symbols and fonts (load before newtxmath)
 \RequirePackage{amsthm}
-\RequirePackage{amssymb}
-\RequirePackage{newtxtext,newtxmath}  % Times-like fonts for IEEE compliance
 
-% GEOMETRY
-\RequirePackage[a4paper, left=1.25in, right=1in, top=1in, bottom=1in]{geometry}
+% Use Times fonts without the problematic figureversions package
+\RequirePackage{times}          % Use standard Times font
+\RequirePackage{newtxmath}      % Math font that matches Times for consistency
 
+% Beautiful monospace font
+% \RequirePackage{FiraMono}       % Modern, elegant monospace font with great readability
+% Alternative options (comment/uncomment to switch):
+% \RequirePackage{sourcecodepro}  % Adobe's elegant monospace
+% \RequirePackage{inconsolata}    % Classic, highly readable
+% \RequirePackage[scaled=0.95]{beramono}  % Clean, compact monospace
+
+% ============================================================
+% TYPOGRAPHY
+% ============================================================
+\RequirePackage[]{microtype} % Micro-typography (protrusion disabled to avoid LOA issues)
+\RequirePackage[none]{hyphenat} % Disable hyphenation
+
+\RequirePackage{xspace}
+
+% ============================================================
+% PAGE GEOMETRY
+% ============================================================
+\RequirePackage[a4paper, left=1.5in, right=1in, top=1in, bottom=1in]{geometry}
+\setlength{\footskip}{0.5in} % Footer margin
+
+% ============================================================
+% COLORS
+% ============================================================
+\RequirePackage{xcolor}         % Color support
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.2,0.2,0.2}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+% ============================================================
 % VISUAL ELEMENTS
-\RequirePackage{xcolor}
-\RequirePackage{graphicx}
+% ============================================================
+\RequirePackage{graphicx}       % Include images
 \RequirePackage{cite}
-\RequirePackage[labelfont=bf,textfont=it]{caption}
-\RequirePackage{subcaption}
+\RequirePackage{caption}        % Caption formatting
+\RequirePackage{subcaption}     % Subfigures
+
+% ============================================================
+% CAPTION FORMATTING
+% ============================================================
+\captionsetup{labelsep=space}
+\renewcommand{\listoflofentryname}{Figure}
+\renewcommand{\listoflotentryname}{Table}
 \RequirePackage{booktabs}
 \RequirePackage{array}
 \RequirePackage{tabularx}
@@ -54,8 +97,16 @@
 \RequirePackage{listings}
 \RequirePackage{siunitx}
 \RequirePackage{float}
-\RequirePackage{pdfpages}
-\RequirePackage{standalone}
+\RequirePackage{pdfpages}       % For including PDF pages
+\RequirePackage{lscape}
+\RequirePackage{adjustbox}
+\RequirePackage{rotating}       % For rotating tables, figures
+\RequirePackage{lipsum}         % Dummy text generation
+\RequirePackage{csvsimple}
+\RequirePackage{datetime2}      % For date management
+\RequirePackage{textcase}       % For managing text-cases
+\RequirePackage{multicol}       % For multi-column use
+\RequirePackage[subpreambles=true]{standalone}     % Standalone figures use their own preambles
 
 % LISTS
 \RequirePackage{enumitem}
@@ -63,15 +114,26 @@
 \setlist[enumerate]{topsep=3pt,itemsep=0pt,parsep=2pt,leftmargin=*}
 \setlist[description]{topsep=3pt,itemsep=0pt,parsep=2pt}
 
-% ALGORITHMS AND THEOREMS
-\RequirePackage{algorithm}
-\RequirePackage{algpseudocode}
-\RequirePackage{algorithmicx}
+% ============================================================
+% KOMA-SCRIPT
+% ============================================================
+\RequirePackage{scrlayer-scrpage} % Recommended for KOMA-Script
+
+% ============================================================
+% ALGORITHMS
+% ============================================================
+\RequirePackage{algorithm}      % Algorithm floats
+\RequirePackage{algpseudocode}  % Pseudocode formatting
+\RequirePackage{algorithmicx}   % Algorithm constructs
 \RequirePackage{scrhack}
 
-% SPACING - Must load AFTER scrhack (which loads setspaceenhanced)
-\RequirePackage{setspace}
-\onehalfspacing  % Apply 1.5 line spacing globally
+% ============================================================
+% SPACING AND PARAGRAPH FORMATTING
+% ============================================================
+% Must load AFTER scrhack (which loads setspaceenhanced)
+\RequirePackage{setspace}       % Line spacing control
+\onehalfspacing             % 1.5 line spacing
+\setparsizes{0pt}{10pt}{0pt plus 1fil} % Paragraph spacing
 
 % Override KOMA-Script's automatic single spacing in TOC, LOF, LOT
 \AfterTOCHead{\onehalfspacing}
@@ -163,9 +225,30 @@
 \allowdisplaybreaks[4]
 \interdisplaylinepenalty=2500
 
-% Caption configuration
-\captionsetup{font=small}
-% Note: Table caption position handled by captions=tableheading in KOMA options
+% ============================================================
+% TABLE OF CONTENTS STYLING
+% ============================================================
+\setkomafont{chapterentry}{\normalfont\bfseries}
+\setkomafont{chapterentrydots}{\normalfont\bfseries}
+\KOMAoptions{chapterentrydots=true}
+\setcounter{tocdepth}{1}
+\setcounter{secnumdepth}{2}
+
+% ============================================================
+% TYPESETTING
+% ============================================================
+\sloppy % Justify text
+\hbadness=10000
+
+% Prevent widows and orphans
+\clubpenalty = 100000       % Paragraph does not start on the last line of a page
+\widowpenalty = 100000      % Paragraph does not end on the first line of a page
+\displaywidowpenalty = 100000 % Paragraph does not end on the first line of a page
+
+% ============================================================
+% PAGE NUMBERING
+% ============================================================
+\cfoot{\pagemark} % Center the page number
 
 % Bibliography heading
 \renewcommand{\bibname}{REFERENCES}
@@ -183,43 +266,56 @@
 \setlength{\belowrulesep}{0.4ex}
 % Note: \tabcolsep uses LaTeX default (6pt) for automatic column spacing
 
-% Chapter/Section formatting - IEEE style with sans serif headings
-\setkomafont{chapter}{\sffamily\huge\bfseries}
-\addtokomafont{chapter}{\MakeUppercase}
-\renewcommand*{\chapterformat}{\thechapter\autodot\enskip}
-\setkomafont{section}{\sffamily\Large\bfseries}
-\renewcommand*{\sectionformat}{\thesection\autodot\enskip}
-\setkomafont{subsection}{\sffamily\large\bfseries}
-\renewcommand*{\subsectionformat}{\thesubsection\autodot\enskip}
-\setkomafont{subsubsection}{\sffamily\normalsize\bfseries}
-\renewcommand*{\subsubsectionformat}{\thesubsubsection\autodot\enskip}
+% ============================================================
+% HEADING STYLES (Thapathali Campus Theme)
+% ============================================================
+\setkomafont{chapter}{\normalfont \bfseries \MakeUppercase}
+\setkomafont{section}{\normalfont\bfseries}
+\setkomafont{subsection}{\normalfont\bfseries}
+\setkomafont{subsubsection}{\normalfont\bfseries}
+\setkomafont{paragraph}{\normalfont\bfseries}
+\setkomafont{subparagraph}{\normalfont\bfseries}
 
-% Section spacing
-\RedeclareSectionCommand[beforeskip=3.5ex plus 1ex minus .2ex, afterskip=2.3ex plus .2ex]{section}
-\RedeclareSectionCommand[beforeskip=3.25ex plus 1ex minus .2ex, afterskip=1.5ex plus .2ex]{subsection}
-\RedeclareSectionCommand[beforeskip=3.25ex plus 1ex minus .2ex, afterskip=1.5ex plus .2ex]{subsubsection}
+% ============================================================
+% SECTION SPACING
+% ============================================================
+\RedeclareSectionCommand[beforeskip=0sp,afterskip=1sp plus 12pt]{chapter}
+\RedeclareSectionCommand[beforeskip=0sp,afterskip=1sp plus 10pt]{section}
+\RedeclareSectionCommand[beforeskip=0sp,afterskip=1sp plus 8pt]{subsection}
+\RedeclareSectionCommand[beforeskip=0sp,afterskip=1sp plus 6pt]{subsubsection}
+\RedeclareSectionCommand[beforeskip=0sp,afterskip=1sp plus 18pt]{paragraph}
 
-% Numbering formats (IEEE: Figure 1.1, Table 1.1, Equation (1.1))
-% Note: Counter reset per chapter is automatic in scrreprt
-\renewcommand\thefigure{\thechapter.\arabic{figure}}
-\renewcommand\thetable{\thechapter.\arabic{table}}
-\renewcommand{\theequation}{\thechapter.\arabic{equation}}
+% ============================================================
+% NUMBERING FORMATS
+% ============================================================
+\renewcommand\thefigure{\thechapter-\arabic{figure}}
+\renewcommand\thetable{\thechapter-\arabic{table}}
+\renewcommand{\theequation}{\thechapter-\arabic{equation}}
 
-% Code listings
+% ============================================================
+% CODE LISTING STYLE
+% ============================================================
 \lstset{
-    basicstyle=\ttfamily\small,
+    language=Python,
     breaklines=true,
-    numbers=left,
-    numberstyle=\tiny\color{gray},
-    frame=single,
+    breakautoindent=true,
+    postbreak=\mbox{\textcolor{red}{$\hookrightarrow$}\space},
+    breakatwhitespace=true,
+    basicstyle=\ttfamily\scriptsize\color{black},  % \ttfamily now uses Fira Mono
+    keywordstyle=\color{black}\bfseries,
+    commentstyle=\color{black}\itshape,
+    stringstyle=\color{black},
     captionpos=b,
-    commentstyle=\color{green!50!black},
-    keywordstyle=\color{blue},
-    stringstyle=\color{red!70!black},
+    frame=shadowbox,
+    rulesepcolor=\color{black},
     showstringspaces=false,
     tabsize=4,
-    xleftmargin=2em,
-    framexleftmargin=1.5em
+    numbers=left,
+    numberstyle=\tiny\color{black},
+    numbersep=5pt,
+    backgroundcolor=\color{backcolour},
+    xleftmargin=15pt,
+    xrightmargin=15pt
 }
 
 % CUSTOM COMMANDS
