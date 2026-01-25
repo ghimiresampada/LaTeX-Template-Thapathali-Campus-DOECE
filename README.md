@@ -2,6 +2,8 @@
 
 This repository is a LaTeX template for **major/minor project** proposal, progress, and final reports.
 
+# Important: To use the newer version: just replace the thapathaliece.cls file of your existing repo with the new one given here!
+
 ## Quick Start
 
 1. Edit project metadata in [vars.tex](vars.tex) (title, authors, supervisor, dates, etc.).
