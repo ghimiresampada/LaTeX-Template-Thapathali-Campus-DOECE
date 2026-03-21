@@ -95,32 +95,32 @@ This reduces the input data size by $66.6\%$, freeing up critical heap memory (\
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=1\linewidth]{src/images/RGBtoGreyscale.png}
-    \caption{RGB to Grayscale}\cite{skimage:grayscale}
+    \caption{RGB to Grayscale}\cite{skimage_grayscale}
     \label{fig: RGB to Grayscale}
 \end{figure}
 
 \subsubsection{\textbf{Spatial Partitioning Distribution}}
-The process begins with the Tiling module, which extracts $n$ overlapping tiles from the source image. This step is critical for maintaining high-resolution features on resource-constrained hardware. By using a 25\% overlap across both axes, the system ensures that human subjects positioned at tile boundaries are not bisected, preserving spatial continuity for the feature extractor.
+The process begins with the Tiling module, which extracts $n$ overlapping tiles from the source image. This step is critical for maintaining high-resolution features on resource-constrained hardware. By using a 25\% overlap between adjacent tiles, the system ensures that human subjects positioned at tile boundaries are not bisected, preserving spatial continuity for the feature extractor.
 
 \subsection{Communication Protocol Implementation}
 The \gls{esp} protocol will be the communication backbone, selected for its highly efficient, peer-to-peer data exchange capabilities and low-latency feedback. While \gls{esp} is efficient, its throughput is limited (observed maximums up to 771 \gls{kb}/s). Therefore, the implementation will rely on efficient data packing, ensuring that tile data transfer maximizes the available throughput and that result packets adhere to the small packet size limits ($<250$ bytes for control and aggregation data). The ability to transfer data quickly is paramount, as the latency gained by parallel processing can be quickly lost if the communication time dominates the total system latency.
 
 
-\subsection{\gls{hpd} Model Layer (Distributed Inference)}
+\subsection{Feature Extraction Layer}
 \begin{itemize}
     \item Parallel Processing: Each node receives a specific low-resolution tile from the Input Layer.
-    \item Local Inference: Nodes perform localized \gls{hpd} analysis by modeling human presence as a Bernoulli distribution ($y \in \{0, 1\}$). The \gls{cnn} utilizes a Softmax function to map raw model outputs (logits) to a posterior probability as given in \eqref{eq:42} :
+    \item Local Inference: 
     \item Node ID: A 1-byte identifier used to map the tile’s location within the larger $224 \times 224$ frames.
     \item Quantized Score ($Q$): The posterior probability is scaled to a single-byte integer ($Q = P \times 255$). This significantly reduces communication overhead compared to sending bulky decimal numbers\cite{espressif2024espdl}.
-    \item Local Bounding Box ($B_{local}$): Spatial coordinates $[x, y, w, h]$ that pinpoint exactly where "person-like" features were detected within that specific tile\cite{redmon2016yolo}.
+    
 \end{itemize}
 
 \subsection{Output Layer (Aggregation \& Logic)}
 As the final stage of the architecture, this layer serves as the central decision-making layer:
-\begin{itemize}
-    \item \textbf{Data Synthesis:} It aggregates the distributed output vectors from the \gls{hpd} Model Layer.
-    \item \textbf{Final Prediction:} By synthesizing the localized data, the Output Layer produces the final global \gls{hpd} prediction for the entire captured frame.
-\end{itemize}
+% \begin{itemize}
+%     \item \textbf{Data Synthesis:} It aggregates the distributed output vectors from the \gls{hpd} Model Layer.
+%     \item \textbf{Final Prediction:} By synthesizing the localized data, the Output Layer produces the final global \gls{hpd} prediction for the entire captured frame.
+% \end{itemize}
 
 \section{Model Selection and Optimization Pipeline}
 \subsection{Base Model Selection and Training}
@@ -328,29 +328,14 @@ The proposed system utilizes a \gls{cnn} based on a modified mobilenetv2 backbon
 \subsection*{2.1.Grayscale Adaptation and Transfer Learning}
 To minimize memory consumption and computational latency, the model is adapted to process single-channel grayscale images. Since the pretrained weights were originally optimized for rgb data, the first convolution layer's weights ($W \in \mathbb{R}^{C_{out} \times 3 \times k \times k}$) are averaged across the channel dimension:
 \begin{equation}
-W_{\text{gray}} = \frac{1}{3}(W_R + W_G + W_B) 
+    \label{eq:greyscale}
+    Y= 0.299R +0.587G +0.114B
 \end{equation}
 This strategy preserves low-level features, such as edge and texture detectors, while allowing the model to function on simplified \gls{sram}-efficient inputs.
 
-\subsection*{2.2.Inverted Residuals and Efficiency}
-The feature backbone leverages Inverted Residual Blocks, which utilize depthwise separable convolutions to reduce parameters. This design follows a "Narrow $\to$ Wide $\to$ Narrow" sequence:
-\[ x \to \text{Conv}_{1 \times 1} \to \text{DWConv}_{3 \times 3} \to \text{Conv}_{1 \times 1} \]
-The computational cost reduction factor, compared to standard convolutions, is defined as $\frac{1}{N} + \frac{1}{D_k^2}$, making it ideal for edge deployment.
-
-\subsection*{2.3.Freezing Strategy and GAP}
-To stabilize training on the 737-sample dataset, a freezing strategy is employed where the backbone parameters ($\theta_f$) are kept static. Optimization only updates the task-specific head ($\theta_t$):
-\begin{equation} \theta_t \leftarrow \theta_t - \eta \nabla_{\theta_t} L \end{equation}
-Spatial features are then compressed using \gls{gap}, which transforms the tensor from $\mathbb{R}^{N \times 1280 \times h \times w}$ to $\mathbb{R}^{N \times 1280}$ by calculating the spatial average:
-\begin{equation}
-z_c = \frac{1}{hw} \sum_{i=1}^{h} \sum_{j=1}^{w} x_{c,i,j} 
-\end{equation}
-
-\subsection*{2.4.Classifier Head and Loss Function}
+\subsection*{2.2.Classifier Head and Loss Function}
 The final classification is performed by a narrow bottleneck head ($1280 \to 64 \to 2$) using ReLU activation and dropout ($0.2$ and $0.1$) to prevent overfitting. The resulting logits $\hat{y}$ are evaluated using Cross-Entropy Loss:
 \begin{equation} L = - \sum_{i=1}^{2} y_i \log \left( \frac{e^{\hat{y}_i}}{\sum_{j} e^{\hat{y}_j}} \right) \end{equation}
-
-The complete forward pass is sum  marized as:
-\begin{equation} f_{\theta}(x) = W_2 \text{ReLU} (W_1 (\text{GAP} (\text{Backbone} (\text{Conv}_{gray}(x))))) \end{equation}
 
 \subsection{Low-Bit Quantization Implementation}
 The baseline operational model will utilize \gls{ptq} to convert the \gls{hpd} model to symmetric \gls{int8} weights and asymmetric \gls{int8} activations. This approach is selected for its demonstrated success in significantly reducing computational complexity while maintaining high classification reliability in resource-constrained deployments. Further optimization will involve the experimental deployment of \gls{int4} quantization for specific non-critical layers. This mixed-precision approach will push memory reduction to its architectural limits, targeting a final Flash footprint of $<1.0$ \gls{mb}.
@@ -359,7 +344,7 @@ To mitigate the precision loss associated with such aggressive compression, cali
 
 \section{Evaluation Metrics and Performance Framework}
 
-We use a multi-layered evaluation methodology to thoroughly evaluate the Distributed Multi-Agent Presence Detection System's efficiency. This framework measures the effectiveness of the Master-Worker architecture and its performance under stringent \gls{tinyml} limitations, going beyond mere correctness.
+This framework measures the effectiveness of the Master-Worker architecture and its performance under stringent \gls{tinyml} limitations.
 
 \subsection{Detection Reliability Matrix (The Deep Learning Layer)}
 
