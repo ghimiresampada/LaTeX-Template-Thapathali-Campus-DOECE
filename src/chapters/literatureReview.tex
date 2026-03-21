@@ -1,44 +1,11 @@
 \chapter{LITERATURE REVIEW}
 
+The trajectory of smart building sensor technology is increasingly moving toward complex computer vision solutions to overcome the inherent failures of traditional sensing systems. The evolution from basic detection technologies like Passive Infrared (PIR) and Bluetooth Low Energy (BLE) is driven by the demand for superior accuracy and the critical need to differentiate between simple movement and actual physiological presence. Traditional PIR sensors are highly sensitive to thermal movement but fundamentally lack the ability to confirm the presence of a stationary individual, resulting in unreliable occupancy data for HVAC or smart lighting. While hybrid systems combining PIR and Radar have emerged to reduce false alerts, they still struggle with high-fidelity requirements \cite{Ahmad2021}. High-fidelity presence detection requires the capacity to sense subtle physiological indicators such as posture shifts or minute breathing patterns. Literature benchmarks indicate that Passive Infrared (PIR) sensors have a stationary detection reliability of approximately 0.0\%, making them ineffective for modern energy management needs when compared to PC-based models that achieve an 85.0\% Mean Average Precision (mAP). This project’s computer vision approach is designed to replace these specialized sensors by analyzing visual light patterns for high-frequency components that correspond to human activity, resolving the stationary detection issue by maintaining a presence signal even when movement is minimal.
 
-WRITING GUIDELINES FOR LITERATURE REVIEW CHAPTER
+To bridge the gap between complex deep learning models and the extreme hardware limitations of edge microcontrollers, quantization is employed as a critical optimization strategy. By reducing the precision of the model's numerical values, it becomes possible to fit sophisticated human detection algorithms into a very small memory footprint \cite{nagel2021white, esp32s3_datasheet}. The industry standard involves converting 32-bit floating-point (FP32) weights into 8-bit integers (INT8), providing a four-fold reduction in memory. For models like MobileNetV2, Post-Training Quantization (PTQ) has been shown to retain up to 99.7\% of baseline accuracy. While extreme 4-bit (INT4) quantization allows for even smaller models, it often introduces a loss in precision that requires recovery techniques like layer-wise equalization. Modern approaches, such as those used in Q-CNN, prioritize response fidelity rather than just weight error, achieving up to 20x model compression with less than a 1\% drop in performance \cite{wu2016qcnn}. For this project, quantization is a necessity to meet the strict 512 KB SRAM ceiling of the ESP32-S3, as standard single-node edge solutions typically struggle with throughputs of only 1.0–1.5 FPS and inference latencies ranging from 800 ms to 1200 ms.
 
-The Literature Review critically analyzes existing research, technologies, and solutions related to your project. It is NOT merely a summary of papers but rather a synthesis that compares approaches, identifies gaps, and justifies your project's novelty. This chapter should demonstrate your understanding of the field and position your work within the broader research landscape.
+To deploy these models effectively, the literature emphasizes optimizing both the arrangement of layers and the nature of the weights themselves. The SqueezeNet architecture achieves high accuracy with minimal parameters through the "Fire Module," which uses $1 \times 1$ "Squeeze" filters to reduce channels before they reach expensive $3 \times 3$ "Expand" filters \cite{iandola2016squeezenet}. Complementing this, Local Binary Convolutional Neural Networks (LBCNN) represent a paradigm shift toward fixed stochastic projections. Rooted in Local Binary Patterns (LBP), LBCNN replaces standard learnable filters with fixed, sparse, binary kernels. In an LBC layer, the response is calculated as a learnable linear combination of these pre-defined binary filters, providing an immediate 9x reduction in parameters for $3 \times 3$ kernels, scaling up to 169x in deeper architectures. Because binary kernels are compatible with bitwise operations, LBCNN facilitates lower latency and reduced power consumption, allowing deep models to operate within the 512 KB SRAM limits of devices like the ESP32-S3 \cite{juefei2017lbcnn}.
 
-GENERAL ORGANIZATION PRINCIPLES:
-\begin{itemize}
-    \item Structure by themes or technologies, NOT paper-by-paper summaries
-    \item Write in reverse chronological order within each theme
-    \item Compare and contrast different approaches using tables
-    \item Identify trends and gaps in existing research
-    \item Build argument for why your work is needed
-    \item Cite comprehensively but critically (15-30 high-quality references)
-    \item Each paragraph should relate reviewed work to YOUR project
-\end{itemize}
+To avoid Out of Memory (OOM) crashes and overheating, which occur when a single chip handles massive 4K images, the literature suggests a distributed approach. While "Model Partitioning" exists, "Data Partitioning" or Tiling—which this project uses—is preferred for high-resolution data \cite{li2020pytorch}. This horizontal split involves cutting the image into a grid of independent tiles, allowing each node to run the full model in parallel and preserving the fine details usually lost when an image is shrunk. However, distributed systems must mitigate "Communication Overhead"; if the transfer time ($T_{comm}$) exceeds the computation time ($T_{comp}$), the system slows down \cite{jeong2021}. To solve this, the project utilizes the ESP-NOW protocol, offering low-latency peer-to-peer communication (1.115 ms) and handling limited bandwidth (500–771 KB/s) by transmitting small result packets rather than raw images. This hierarchy includes an Input Node (ESP32-CAM) for tile partitioning, Edge Computing Nodes (ESP32-S3) for parallel inference, and an Aggregator Node to reconcile detections.
 
-HOW TO WRITE - HARDWARE PROJECTS:
-
-Review existing hardware systems addressing similar problems. Describe their architectures, components, performance characteristics, and limitations. Compare different: Sensor technologies, Microcontroller platforms (Arduino, Raspberry Pi, ESP32, STM32), Communication protocols (UART, I2C, SPI, WiFi, Bluetooth), Power management strategies.
-
-For ML-enhanced hardware: Review edge AI approaches, Model optimization techniques (quantization, pruning), Inference engines (TensorFlow Lite, ONNX Runtime), Hardware accelerators (GPUs, TPUs, Neural Processing Units).
-
-Identify gaps: existing systems too expensive, excessive power consumption, lack functionality, cannot operate in specific environments, fail to leverage modern ML techniques.
-
-Include 15-20 high-quality references from IEEE journals, conferences, and technical sources.
-
-HOW TO WRITE - ML/SOFTWARE PROJECTS:
-
-Organize around key themes: Application domain background, Relevant algorithms or architectures (CNNs, Transformers, ensemble methods), Datasets commonly used, Evaluation methodologies, Deployment considerations.
-
-For ML projects: Review foundational algorithms/architectures. Discuss strengths, weaknesses, computational requirements, and applicability. Compare different approaches (traditional ML vs. deep learning, supervised vs. unsupervised). Use tables to compare model architectures, performance metrics, dataset sizes, and computational costs. Critically evaluate methodologies.
-
-For software projects: Review existing systems, frameworks, or applications. Discuss architectural patterns (MVC, microservices, serverless), technology stacks, scalability approaches, UI paradigms. Compare commercial vs. open-source alternatives.
-
-Identify research gaps: existing models don't generalize to your domain, available software lacks features, current solutions don't scale, insufficient research comparing approaches.
-
-Aim for 20-30 high-quality references from top-tier venues (NeurIPS, ICML, CVPR, ACL, SIGMOD) and industry technical reports.
-
-STRUCTURE SUGGESTIONS:
-section Related Hardware/Software Systems, section Machine Learning Approaches (if applicable), section Datasets and Benchmarks, section Evaluation Methodologies, section Research Gaps and Our Contribution
-
-LaTeX quick refs: Cite with cite key, Use label and reference via Section ref, Use comparison tables with label and reference via Table ref
+Current research highlights two major gaps that this project aims to bridge. First, the Information Loss Gap occurs because most systems resize 4K streams to fit tiny models, acting as a blur filter that erases subtle human features. Second, the High-End Hardware Gap exists because while methods like Slicing Aided Hyper Inference (SAHI) prove that tiling improves small object detection by 20–30\% \cite{akyon2022sahi}, these are typically designed for expensive workstations. By implementing a Distributed Tiling architecture and using LBCNNs to shrink the model size, this project achieves high-definition accuracy previously reserved for expensive PCs. This approach ensures total data privacy by keeping processing local and provides a low-cost, scalable solution for industrial safety and smart energy management.

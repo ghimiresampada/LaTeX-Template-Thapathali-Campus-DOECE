@@ -1,43 +1,38 @@
 \chapter{REQUIREMENTS ANALYSIS}
 \label{chap:requirements}
 
-CHAPTER GUIDE:
-Purpose: specify what the system must do (FRs) and how well (NFRs)
-Must include: Functional requirements, Non-functional requirements, System requirements
-LaTeX: use tables with caption and label, reference with Table ref
+The development of a distributed, tile-based \gls{hpd} system requires a multi-faceted analysis of hardware constraints, software dependencies, and network reliability. This section outlines the essential requirements to ensure the feasibility of the project.
 
-This chapter specifies what the system must do (functional requirements) and how well it must do it (non-functional requirements). Hardware and software requirements belong here as \emph{system requirements} (i.e., what platform/environment is needed to build and run the system), while the next chapter (System Architecture and Methodology) should explain \emph{how} you will implement and validate these requirements.
+\section{Hardware Requirements}
+Since the project targets the ESP32-S3 platform, the hardware selection is dictated by the need for \gls{ai} acceleration and power efficiency.
 
-\section{Functional Requirements}
-List functional requirements using a consistent, testable format (e.g., IEEE 830 / “shall” statements).
-
-\begin{enumerate}
-    \item \textbf{FR-001:} The system shall \emph{[describe capability]}.
-    \item \textbf{FR-002:} The system shall \emph{[describe capability]}.
-\end{enumerate}
-
-\section{Non-Functional Requirements}
-Capture performance, reliability, usability, maintainability, portability, and security constraints.
-
-\begin{enumerate}
-    \item \textbf{NFR-001 (Performance):} The system shall \emph{[state measurable latency/throughput target]}.
-    \item \textbf{NFR-002 (Reliability):} The system shall \emph{[state uptime/robustness target]}.
-\end{enumerate}
-
-\section{System Requirements }
-This section has answers for “what machine + what software stack is required to build/run the project?”
-
-\subsection{Hardware Requirements}
 \begin{itemize}
-    \item \textbf{Minimum:} 64-bit CPU, 8 GB RAM, 5 GB free disk space.
-    \item \textbf{Recommended:} 4+ core CPU, 16 GB RAM, SSD storage.
-    \item \textbf{Optional (ML/large experiments):} Dedicated GPU with supported drivers and sufficient VRAM.
+    \item \textbf{Camera Module:} A high-resolution camera module(OV2640) capable of capturing images at higher resolution than traditional image processing systems, which will then be partitioned.
+    \item \textbf{Input Node:} A master node responsible for taking images from the image sensor; partitioning them into multiple tiles and distributing them to edge nodes.
+    \item \textbf{Edge Computing Nodes:} Multiple ESP32-S3 \glspl{mcu} are required. These must support the $Xtensa® LX7$ vector instructions to handle the tile-level \gls{cnn} inference.
+    \item \textbf{Aggregator Node:} A  simple ESP32 responsible for collecting feature vectors and executing the final classification layer.
+    \item \textbf{Communication Interface:} A low-latency communication system for inter-node communication \glspl{espnow}.
 \end{itemize}
 
-\subsection{Software Requirements}
+\section{Software \& Framework Requirements}
+To achieve ultra-low bit quantization and distributed processing, the following software stack is required:
+
 \begin{itemize}
-    \item Operating system: Windows / Linux / macOS (specify your target).
-    \item Build tools: \emph{[e.g., GCC, CMake, Maven, etc.]}.
-    \item Project runtime/development stack: \emph{[e.g., Python 3.x + required libraries, database, web framework]}.\newline
-          (Replace this line with the exact stack used in your implementation.)
+    \item \textbf{Development Environment:} Arduino IDE using C/C++.
+    
+    \item \textbf{AI Inference Library:} \gls{esp-dl} to utilize high-performance kernels for quantized 8-bit or 16-bit operations.
+    
+    \item \textbf{Model Optimization:} \gls{tfml} for initial model training and conversion, followed by \gls{qat}.
+    
+    \item \textbf{Tiling Logic:} A custom C++ pre-processing module to handle spatial partitioning and memory-safe buffer management for individual tiles.
+\end{itemize}
+
+
+\section{Non-Functional Requirements}
+\begin{itemize}
+    \item \textbf{Latency:} The total time must be low enough for real-time processing.
+    
+    \item \textbf{Scalability:} The system should support a variable number of nodes depending on the resolution and required \gls{fps}.
+    
+    \item \textbf{Robustness:} In the event of a node failure, the system should gracefully degrade, relying on the remaining tiles to provide partial occupancy data.
 \end{itemize}
