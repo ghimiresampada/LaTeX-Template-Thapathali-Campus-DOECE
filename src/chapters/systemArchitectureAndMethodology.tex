@@ -1,4 +1,67 @@
 \chapter{SYSTEM ARCHITECTURE AND METHODOLOGY}
+
+\section{Hardware Specifications and system topology}
+The project utilizes a decentralized, multi-node architecture deployed on ESP32 and ESP32-S3 \glspl{mcu}. To optimize throughput and manage resource constraints, the system is organized into a three-tier hierarchical structure.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{src/images/Downsampling.drawio.png}
+    \caption{System Architecture showing main components and their interactions.}
+    \label{fig:System Architecture showing main components and their interactions.}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\textwidth]{src/images/Untitled Diagram.drawio (1).png}
+    \caption{Detailed Data Flow Diagram of the Tiling and Inference Pipeline.}
+    \label{fig:detailed_workflow}
+\end{figure}
+\subsection{Input Layer}
+Centered around an ESP32-CAM\cite{dfrobot2024ens160}, this layer manages high-bandwidth data acquisition and initial pre-processing. Its primary role is to prepare and distribute workloads to the processing tier through the following pipeline:
+% \subsubsection{\textbf{Temporal Downsampling}}
+% The raw input from the ESP32-CAM typically operates at a higher frame rate (e.g., 10 - 15 \gls{fps}) than the backend processing can handle. The input node implements a timer-driven interrupt to capture exactly 1 frame every 1000 \gls{ms}.
+
+\subsubsection{\textbf{Luminance Conversion (Grayscale)}}
+Processing three-channel RGB data significantly inflates the memory buffer requirements and computational complexity ($O(3n)$ vs $O(n)$). The captured frame has to be converted to an 8-bit grayscale format using a weighted luminance formula as given in \eqref{eq:42}  \cite{itu2011bt601}.
+\begin{equation}
+    \label{eq:42}
+    P(y = 1 \mid x) = \frac{e^{z_{\text{person}}}}{e^{z_{\text{bg}}} + e^{z_{\text{person}}}}
+\end{equation}
+% \cite{goodfellow2016deep}
+Where $z_{\text{person}}$ and $z_{\text{bg}}$ are the logits for the "person" and "background" classes, respectively. This conversion reduces the data size by two-thirds, significantly easing the memory and computational load on the subsequent processing nodes.
+This reduces the input data size by $66.6\%$, freeing up critical heap memory (\gls{sram}) for the tiling and distribution buffers.
+\begin{equation}
+    \label{eq:greyscale}
+    Y= 0.299R +0.587G +0.114B
+\end{equation}
+% \begin{figure}[htbp]
+%     \centering
+%     \includegraphics[width=1\linewidth]{src/images/RGBtoGreyscale.png}
+%     \caption{RGB to Grayscale}\cite{skimage_grayscale}
+%     \label{fig: RGB to Grayscale}
+% \end{figure}
+\subsubsection{\textbf{Spatial Partitioning Distribution}}
+The process begins with the Tiling module, which extracts $n$ overlapping tiles from the source image. This step is critical for maintaining high-resolution features on resource-constrained hardware. By using a 25\% overlap between adjacent tiles, the system ensures that human subjects positioned at tile boundaries are not bisected, preserving spatial continuity for the feature extractor.
+
+\subsection{Communication Protocol Implementation}
+The \gls{esp} protocol will be the communication backbone\cite{espnow_doc}, selected for its highly efficient, peer-to-peer data exchange capabilities and low-latency feedback. While \gls{esp} is efficient, its throughput is limited (observed maximums up to 771 \gls{kb}/s). Therefore, the implementation will rely on efficient data packing, ensuring that tile data transfer maximizes the available throughput and that result packets adhere to the small packet size limits ($<250$ bytes for control and aggregation data). The ability to transfer data quickly is paramount, as the latency gained by parallel processing can be quickly lost if the communication time dominates the total system latency.
+
+
+\subsection{Feature Extraction Layer}
+\begin{itemize}
+    \item Parallel Processing: Each node receives a specific low-resolution tile from the Input Layer.
+    \item Local Inference: 
+    \item Node ID: A 1-byte identifier used to map the tile’s location within the larger $224 \times 224$ frames.
+    \item Quantized Score ($Q$): The posterior probability is scaled to a single-byte integer ($Q = P \times 255$). This significantly reduces communication overhead compared to sending bulky decimal numbers\cite{espressif2024espdl}.
+    
+\end{itemize}
+
+\subsection{Output Layer (Aggregation \& Logic)}
+As the final stage of the architecture, this layer serves as the central decision-making layer:
+% \begin{itemize}
+%     \item \textbf{Data Synthesis:} It aggregates the distributed output vectors from the \gls{hpd} Model Layer.
+%     \item \textbf{Final Prediction:} By synthesizing the localized data, the Output Layer produces the final global \gls{hpd} prediction for the entire captured frame.
+% \end{itemize}
+\newpage
 \section{Hardware Used}
 The core hardware of this project is built around ESP32-family \glspl{mcu}. It is chosen because they are low-cost, low-power, and capable of running edge-level machine learning tasks. This system follows a distributed architecture. Here, image capturing, processing and decision-making are separated across different ESP32 devices to overcome memory and processing limitations of a single microcontroller. This hardware design allows the system to perform real-time \gls{hpd} without relying on cloud servers, making it faster, more private, and more energy efficient.
 
@@ -58,73 +121,26 @@ SCL                  & GPIO22             & Clock Line           \\ \hline
 
 \subsection{\textbf{Power Supply}}
 All the hardware components in the system are powered using a laptop via USB connections. The laptop provides a stable 5V power supply to the ESP32-CAM, ESP32-S3, and ESP32 boards during development and testing. This simplifies the setup, eliminates the need for external power adapters, and allows easy monitoring and debugging through serial communication. 
-\newpage
-\section{Hardware Specifications and system topology}
-The project utilizes a decentralized, multi-node architecture deployed on ESP32 and ESP32-S3 \glspl{mcu}. To optimize throughput and manage resource constraints, the system is organized into a three-tier hierarchical structure.
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=1\textwidth]{src/images/Downsampling.drawio.png}
-    \caption{System Architecture showing main components and their interactions.}
-    \label{fig:System Architecture showing main components and their interactions.}
-\end{figure}
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.75\textwidth]{src/images/Untitled Diagram.drawio (1).png}
-    \caption{Detailed Data Flow Diagram of the Tiling and Inference Pipeline.}
-    \label{fig:detailed_workflow}
-\end{figure}
-\subsection{Input Layer}
-Centered around an ESP32-CAM\cite{dfrobot2024ens160}, this layer manages high-bandwidth data acquisition and initial pre-processing. Its primary role is to prepare and distribute workloads to the processing tier through the following pipeline:
-% \subsubsection{\textbf{Temporal Downsampling}}
-% The raw input from the ESP32-CAM typically operates at a higher frame rate (e.g., 10 - 15 \gls{fps}) than the backend processing can handle. The input node implements a timer-driven interrupt to capture exactly 1 frame every 1000 \gls{ms}.
+\section{Model Selection and Optimization Pipeline}
+\subsection{Base Model Selection and Training}
+\subsection*{1.Modified MobileNetV2 Architecture}
 
-\subsubsection{\textbf{Luminance Conversion (Grayscale)}}
-Processing three-channel RGB data significantly inflates the memory buffer requirements and computational complexity ($O(3n)$ vs $O(n)$). The captured frame has to be converted to an 8-bit grayscale format using a weighted luminance formula as given in \eqref{eq:42}  \cite{itu2011bt601}.
-\begin{equation}
-    \label{eq:42}
-    P(y = 1 \mid x) = \frac{e^{z_{\text{person}}}}{e^{z_{\text{bg}}} + e^{z_{\text{person}}}}
-\end{equation}
-% \cite{goodfellow2016deep}
-Where $z_{\text{person}}$ and $z_{\text{bg}}$ are the logits for the "person" and "background" classes, respectively. This conversion reduces the data size by two-thirds, significantly easing the memory and computational load on the subsequent processing nodes.
-This reduces the input data size by $66.6\%$, freeing up critical heap memory (\gls{sram}) for the tiling and distribution buffers.
+The proposed system utilizes a \gls{cnn} based on a modified mobilenetv2 backbone, specifically optimized for binary classification tasks where $f_{\theta} : \mathbb{R}^{N \times 1 \times H \times W} \to \mathbb{R}^{N \times 2}$. The architecture is designed to balance high-level feature extraction with the strict hardware constraints of \glspl{mcu}.
+
+\subsection*{1.1.Grayscale Adaptation and Transfer Learning}
+To minimize memory consumption and computational latency, the model is adapted to process single-channel grayscale images. Since the pretrained weights were originally optimized for rgb data, the first convolution layer's weights ($W \in \mathbb{R}^{C_{out} \times 3 \times k \times k}$) are averaged across the channel dimension:
 \begin{equation}
     \label{eq:greyscale}
     Y= 0.299R +0.587G +0.114B
 \end{equation}
-\begin{figure}[htbp]
-    \centering
-    \includegraphics[width=1\linewidth]{src/images/RGBtoGreyscale.png}
-    \caption{RGB to Grayscale}\cite{skimage_grayscale}
-    \label{fig: RGB to Grayscale}
-\end{figure}
+This strategy preserves low-level features, such as edge and texture detectors, while allowing the model to function on simplified \gls{sram}-efficient inputs.
 
-\subsubsection{\textbf{Spatial Partitioning Distribution}}
-The process begins with the Tiling module, which extracts $n$ overlapping tiles from the source image. This step is critical for maintaining high-resolution features on resource-constrained hardware. By using a 25\% overlap between adjacent tiles, the system ensures that human subjects positioned at tile boundaries are not bisected, preserving spatial continuity for the feature extractor.
+\subsection*{1.2.Classifier Head and Loss Function}
+The final classification is performed by a narrow bottleneck head ($1280 \to 64 \to 2$) using ReLU activation and dropout ($0.2$ and $0.1$) to prevent overfitting. The resulting logits $\hat{y}$ are evaluated using Cross-Entropy Loss:
+\begin{equation} L = - \sum_{i=1}^{2} y_i \log \left( \frac{e^{\hat{y}_i}}{\sum_{j} e^{\hat{y}_j}} \right) \end{equation}
 
-\subsection{Communication Protocol Implementation}
-The \gls{esp} protocol will be the communication backbone, selected for its highly efficient, peer-to-peer data exchange capabilities and low-latency feedback. While \gls{esp} is efficient, its throughput is limited (observed maximums up to 771 \gls{kb}/s). Therefore, the implementation will rely on efficient data packing, ensuring that tile data transfer maximizes the available throughput and that result packets adhere to the small packet size limits ($<250$ bytes for control and aggregation data). The ability to transfer data quickly is paramount, as the latency gained by parallel processing can be quickly lost if the communication time dominates the total system latency.
-
-
-\subsection{Feature Extraction Layer}
-\begin{itemize}
-    \item Parallel Processing: Each node receives a specific low-resolution tile from the Input Layer.
-    \item Local Inference: 
-    \item Node ID: A 1-byte identifier used to map the tile’s location within the larger $224 \times 224$ frames.
-    \item Quantized Score ($Q$): The posterior probability is scaled to a single-byte integer ($Q = P \times 255$). This significantly reduces communication overhead compared to sending bulky decimal numbers\cite{espressif2024espdl}.
-    
-\end{itemize}
-
-\subsection{Output Layer (Aggregation \& Logic)}
-As the final stage of the architecture, this layer serves as the central decision-making layer:
-% \begin{itemize}
-%     \item \textbf{Data Synthesis:} It aggregates the distributed output vectors from the \gls{hpd} Model Layer.
-%     \item \textbf{Final Prediction:} By synthesizing the localized data, the Output Layer produces the final global \gls{hpd} prediction for the entire captured frame.
-% \end{itemize}
-
-\section{Model Selection and Optimization Pipeline}
-\subsection{Base Model Selection and Training}
-\subsection*{1. Local Binary Convolution based Architecture}
+\subsection*{2. Local Binary Convolution based Architecture}
 
 \begin{figure}[H]
     \centering
@@ -140,7 +156,7 @@ As the final stage of the architecture, this layer serves as the central decisio
     \label{fig: Local Binary Convolution based Architecture}
 \end{figure}
 
-\subsection*{1.1 LBCLayer Overview}
+\subsection*{2.1 LBCLayer Overview}
 The LBCLayer is a hybrid convolutional layer designed to combine fixed binary convolutions (anchors) for efficient sparse structural feature capture with a learnable $1\times1$ convolution for task-specific adaptation. It is particularly suitable for resource-efficient networks and sparse feature representations, inspired by research on \gls{lbc} and sparse binary kernels.
 
 Mathematically, for an input $x \in \mathbb{R}^{N \times C_{in} \times H \times W}$, the output is defined as:
@@ -153,8 +169,8 @@ Where:
     \item $\text{Conv}_{\text{binary}}$ uses fixed ternary weights $\in \{-1, 0, 1\}$.
     \item $\text{Conv1x1}$ is trainable and combines channels efficiently.
 \end{itemize}
-\subsection*{1.2. LBCLayer Components}
-\subsection*{1.2.1. Fixed Anchor Convolution}
+\subsection*{2.2. LBCLayer Components}
+\subsection*{2.2.1. Fixed Anchor Convolution}
 The purpose of this component is to extract general features without learning, thereby reducing the parameter count. 
 \begin{itemize}
     \item \textbf{Weight generation}: Weights are sampled from a normal distribution $W \sim \mathcal{N}(0, 1)$ and then thresholded to obtain sparsity $s$:
@@ -163,15 +179,15 @@ The purpose of this component is to extract general features without learning, t
     \item These weights are stored as a buffer (\texttt{register\_buffer}), meaning they are not updated during training, ensuring stability and a low memory footprint.
 \end{itemize}
 The key idea is to capture general directional/edge patterns efficiently, similar to handcrafted filters like Sobel, but stochastically generated.
-\subsection*{1.2.2 Non-linearity (ReLU)}
+\subsection*{2.2.2 Non-linearity (ReLU)}
 After the fixed binary convolution, ReLU is applied: $x' = \text{ReLU}(x)$. This introduces non-linearity to approximate complex functions while preserving sparse activations and improving computational efficiency since many values remain zero.
-\subsection*{1.2.3 Learnable 1x1 Convolution}
+\subsection*{2.2.3 Learnable 1x1 Convolution}
 The $1\times1$ kernel combines sparse feature maps into task-relevant channels while keeping computational costs low. 
 \begin{equation}
     x_{\text{final}} = W_{1\times1} * x'
 \end{equation}
 Only this part is trainable, allowing the layer to adapt to specific tasks like human detection.
-\subsection*{1.3 Forward Pass Flow}
+\subsection*{2.3 Forward Pass Flow}
 For a single LBCLayer, the flow is as follows:
 \begin{enumerate}
     \item \textbf{Input tensor}: $x \in \mathbb{R}^{N \times C_{in} \times H \times W}$.
@@ -180,7 +196,7 @@ For a single LBCLayer, the flow is as follows:
     \item \textbf{Learnable 1x1 convolution}: $x_{\text{out}} = \text{Conv1x1}(x_2)$.
     \item \textbf{Output}: $x_{\text{out}} \in \mathbb{R}^{N \times C_{\text{out}} \times H \times W}$.
 \end{enumerate}
-\subsection*{1.4 Advantages of LBCLayer}
+\subsection*{2.4 Advantages of LBCLayer}
 \begin{itemize}
     \item \textbf{Efficiency}: Fixed sparse weights reduce multiply-adds, and $1\times1$ learnable convolutions are computationally cheap.
     \item \textbf{Stability}: Binary anchors are not updated, which avoids noisy gradients; the network only optimizes the final $1\times1$ convolution.
@@ -188,7 +204,7 @@ For a single LBCLayer, the flow is as follows:
     \item \textbf{Compatibility with Tiling}: LBCLayer is ideal for tile-based architectures like the HumanDetector, where each tile can be processed independently and then stitched.
     \item \textbf{Biologically Inspired}: Sparse, binary-like filters resemble early visual cortex processing and are useful for detecting edges, textures, and local patterns.
 \end{itemize}
-\subsection*{1.5 Mathematical Summary}
+\subsection*{2.5 Mathematical Summary}
 For an input $x$, the summary of the operation and gradients is:
 \begin{align*}
     \text{Anchor weight: } A &= f_{\text{binary}}(W, s) \\
@@ -198,7 +214,7 @@ For an input $x$, the summary of the operation and gradients is:
 \end{align*}
 \textbf{Gradients}: $\frac{\partial L}{\partial W_{1\times1}} \neq 0$, whereas $\frac{\partial L}{\partial A} = 0$. 
 Here, $*$ denotes convolution, $s$ is the sparsity threshold, and $A$ represents the fixed binary anchor weights.
-\subsection*{1.6 Overview of \gls{hpd}}
+\subsection*{2.6 Overview of \gls{hpd}}
 The \gls{hpd} (HumanDetector) is a \textbf{tile-based convolutional network} designed to detect humans in images. Its key characteristics:
 \begin{enumerate}
     \item \textbf{Input:} Grayscale images $x \in \mathbb{R}^{N \times 1 \times H \times W}$
@@ -214,7 +230,7 @@ f_{\theta}(x) = \text{Classifier} \left( \text{Concat}_{i,j} (\text{TileExtracto
 \end{equation}
 Where $x_{i,j}$ is the $(i, j)$-th tile.
 
-\subsection*{1.7 Tiling Stage}
+\subsection*{2.7 Tiling Stage}
 The tiling stage prepares the input for localized processing.
 \begin{itemize}
     \item \textbf{Input:} $x \in \mathbb{R}^{N \times 1 \times H \times W}$
@@ -236,7 +252,7 @@ The tiling stage prepares the input for localized processing.
     \item Tiles are \textbf{independent}, can be processed in parallel.
 \end{itemize}
 
-\subsection*{1.8 Tile Feature Extractor (\gls{lbc}-based)}
+\subsection*{2.8 Tile Feature Extractor (\gls{lbc}-based)}
 Each tile passes through the \texttt{tile\_extractor} which follows this architecture:
 \begin{itemize}
     \item \textbf{LBC Layer 1:} $1 \rightarrow 16$ channels, $\text{sparsity}=0.9$.
@@ -250,7 +266,7 @@ For a single tile $x_{i,j}$:
 x' = \text{LBCLayer}(x_{i,j}) = \text{Conv1x1}(\text{ReLU}(\text{Conv}_{\text{binary}}(x_{i,j})))
 \end{equation}
 
-\subsection*{1.9 Aggregation / Stitching}
+\subsection*{2.9 Aggregation / Stitching}
 After feature extraction, the tile outputs are combined:
 \begin{enumerate}
     \item \textbf{Flatten each tile output:} $f_{i,j} \in \mathbb{R}^{32}$
@@ -262,7 +278,7 @@ After feature extraction, the tile outputs are combined:
 \end{enumerate}
 This acts like \textbf{graph aggregation}, treating each tile as a node.
 
-\subsection*{1.10 Classifier Head}
+\subsection*{2.10 Classifier Head}
 The classifier takes the concatenated vector and applies a MLP:
 \begin{itemize}
     \item \textbf{Input:} $f_{\text{combined}} \in \mathbb{R}^{32 \cdot \text{num\_tiles}}$
@@ -277,7 +293,7 @@ Uses \textbf{CrossEntropyLoss} during training:
 L = -\sum_{c=1}^{\text{num\_classes}} y_c \log \text{softmax}(\hat{y}_c)
 \end{equation}
 
-\subsection*{1.11 Computational Efficiency}
+\subsection*{2.11 Computational Efficiency}
 The LBCLayer reduces \glspl{flops} significantly:
 \begin{equation}
 \text{FLOPs} \approx C_{in} \cdot C_{out} \cdot k^2 \cdot H \cdot W
@@ -288,7 +304,7 @@ The LBCLayer reduces \glspl{flops} significantly:
     \item \textbf{Tile-based processing:} Can be parallelized across multiple nodes.
 \end{itemize}
 
-\subsection*{1.12 Mathematical Summary of Forward Pass}
+\subsection*{2.12 Mathematical Summary of Forward Pass}
 \begin{enumerate}
     \item \textbf{Tile splitting:}
     \begin{equation}
@@ -312,7 +328,7 @@ The LBCLayer reduces \glspl{flops} significantly:
     \end{equation}
 \end{enumerate}
 
-\subsection*{1.13 Advantages of \gls{hpd} Architecture}
+\subsection*{2.13 Advantages of \gls{hpd} Architecture}
 \begin{enumerate}
     \item \textbf{Sparse and efficient:} \gls{lbc} reduces compute and memory footprint.
     \item \textbf{Tile-based learning:} Learns local patterns for small human parts.
@@ -321,31 +337,15 @@ The LBCLayer reduces \glspl{flops} significantly:
     \item \textbf{Low-data regime:} Predefined anchors reduce training requirements.
 \end{enumerate}
 
-\subsection*{2.Modified MobileNetV2 Architecture}
-
-The proposed system utilizes a \gls{cnn} based on a modified mobilenetv2 backbone, specifically optimized for binary classification tasks where $f_{\theta} : \mathbb{R}^{N \times 1 \times H \times W} \to \mathbb{R}^{N \times 2}$. The architecture is designed to balance high-level feature extraction with the strict hardware constraints of \glspl{mcu}.
-
-\subsection*{2.1.Grayscale Adaptation and Transfer Learning}
-To minimize memory consumption and computational latency, the model is adapted to process single-channel grayscale images. Since the pretrained weights were originally optimized for rgb data, the first convolution layer's weights ($W \in \mathbb{R}^{C_{out} \times 3 \times k \times k}$) are averaged across the channel dimension:
-\begin{equation}
-    \label{eq:greyscale}
-    Y= 0.299R +0.587G +0.114B
-\end{equation}
-This strategy preserves low-level features, such as edge and texture detectors, while allowing the model to function on simplified \gls{sram}-efficient inputs.
-
-\subsection*{2.2.Classifier Head and Loss Function}
-The final classification is performed by a narrow bottleneck head ($1280 \to 64 \to 2$) using ReLU activation and dropout ($0.2$ and $0.1$) to prevent overfitting. The resulting logits $\hat{y}$ are evaluated using Cross-Entropy Loss:
-\begin{equation} L = - \sum_{i=1}^{2} y_i \log \left( \frac{e^{\hat{y}_i}}{\sum_{j} e^{\hat{y}_j}} \right) \end{equation}
-
 \subsection{Low-Bit Quantization Implementation}
 The baseline operational model will utilize \gls{ptq} to convert the \gls{hpd} model to symmetric \gls{int8} weights and asymmetric \gls{int8} activations. This approach is selected for its demonstrated success in significantly reducing computational complexity while maintaining high classification reliability in resource-constrained deployments. Further optimization will involve the experimental deployment of \gls{int4} quantization for specific non-critical layers. This mixed-precision approach will push memory reduction to its architectural limits, targeting a final Flash footprint of $<1.0$ \gls{mb}.
 
-To mitigate the precision loss associated with such aggressive compression, calibration datasets will be utilized in conjunction with layer-wise equalization techniques. These methods balance weight ranges across the custom architecture, aiming for maximum accuracy retention (targeting lesser than $90\%$ of the pruned \gls{fp32} baseline). This optimization strategy is essential to ensure that the model remains robust for presence detection while fitting within the 512 \gls{kb} \gls{sram} limit. 
+To mitigate the precision loss associated with such aggressive compressio\begin{equation}
+    \label{eq:greyscale}
+    Y= 0.299R +0.587G +0.114B
+\end{equation}n, calibration datasets will be utilized in conjunction with layer-wise equalization techniques. These methods balance weight ranges across the custom architecture, aiming for maximum accuracy retention (targeting lesser than $90\%$ of the pruned \gls{fp32} baseline). This optimization strategy is essential to ensure that the model remains robust for presence detection while fitting within the 512 \gls{kb} \gls{sram} limit. 
 
 \section{Evaluation Metrics and Performance Framework}
-
-This framework measures the effectiveness of the Master-Worker architecture and its performance under stringent \gls{tinyml} limitations.
-
 \subsection{Detection Reliability Matrix (The Deep Learning Layer)}
 
 The main goal is to fix the stationary detection issue that \gls{pir} sensors have. The following standard computer vision criteria will be used to assess our \gls{cnn} model:
