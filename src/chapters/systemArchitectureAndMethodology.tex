@@ -1,131 +1,7 @@
 \chapter{SYSTEM ARCHITECTURE AND METHODOLOGY}
-
-\section{Hardware Specifications and system topology}
-The project utilizes a decentralized, multi-node architecture deployed on ESP32 and ESP32-S3 \glspl{mcu}. To optimize throughput and manage resource constraints, the system is organized into a three-tier hierarchical structure.
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=1\textwidth]{src/images/Downsampling.drawio.png}
-    \caption{System Architecture showing main components and their interactions.}
-    \label{fig:System Architecture showing main components and their interactions.}
-\end{figure}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.75\textwidth]{src/images/Untitled Diagram.drawio (1).png}
-    \caption{Detailed Data Flow Diagram of the Tiling and Inference Pipeline.}
-    \label{fig:detailed_workflow}
-\end{figure}
-\subsection{Input Layer}
-Centered around an ESP32-CAM\cite{dfrobot2024ens160}, this layer manages high-bandwidth data acquisition and initial pre-processing. Its primary role is to prepare and distribute workloads to the processing tier through the following pipeline:
-% \subsubsection{\textbf{Temporal Downsampling}}
-% The raw input from the ESP32-CAM typically operates at a higher frame rate (e.g., 10 - 15 \gls{fps}) than the backend processing can handle. The input node implements a timer-driven interrupt to capture exactly 1 frame every 1000 \gls{ms}.
-
-\subsubsection{\textbf{Luminance Conversion (Grayscale)}}
-Processing three-channel RGB data significantly inflates the memory buffer requirements and computational complexity ($O(3n)$ vs $O(n)$). The captured frame has to be converted to an 8-bit grayscale format using a weighted luminance formula as given in \eqref{eq:42}  \cite{itu2011bt601}.
-\begin{equation}
-    \label{eq:42}
-    P(y = 1 \mid x) = \frac{e^{z_{\text{person}}}}{e^{z_{\text{bg}}} + e^{z_{\text{person}}}}
-\end{equation}
-% \cite{goodfellow2016deep}
-Where $z_{\text{person}}$ and $z_{\text{bg}}$ are the logits for the "person" and "background" classes, respectively. This conversion reduces the data size by two-thirds, significantly easing the memory and computational load on the subsequent processing nodes.
-This reduces the input data size by $66.6\%$, freeing up critical heap memory (\gls{sram}) for the tiling and distribution buffers.
-\begin{equation}
-    \label{eq:greyscale}
-    Y= 0.299R +0.587G +0.114B
-\end{equation}
-% \begin{figure}[htbp]
-%     \centering
-%     \includegraphics[width=1\linewidth]{src/images/RGBtoGreyscale.png}
-%     \caption{RGB to Grayscale}\cite{skimage_grayscale}
-%     \label{fig: RGB to Grayscale}
-% \end{figure}
-\subsubsection{\textbf{Spatial Partitioning Distribution}}
-The process begins with the Tiling module, which extracts $n$ overlapping tiles from the source image. This step is critical for maintaining high-resolution features on resource-constrained hardware. By using a 25\% overlap between adjacent tiles, the system ensures that human subjects positioned at tile boundaries are not bisected, preserving spatial continuity for the feature extractor.
-
-\subsection{Communication Protocol Implementation}
-The \gls{esp} protocol will be the communication backbone\cite{espnow_doc}, selected for its highly efficient, peer-to-peer data exchange capabilities and low-latency feedback. While \gls{esp} is efficient, its throughput is limited (observed maximums up to 771 \gls{kb}/s). Therefore, the implementation will rely on efficient data packing, ensuring that tile data transfer maximizes the available throughput and that result packets adhere to the small packet size limits ($<250$ bytes for control and aggregation data). The ability to transfer data quickly is paramount, as the latency gained by parallel processing can be quickly lost if the communication time dominates the total system latency.
-
-
-\subsection{Feature Extraction Layer}
-\begin{itemize}
-    \item Parallel Processing: Each node receives a specific low-resolution tile from the Input Layer.
-    \item Local Inference: 
-    \item Node ID: A 1-byte identifier used to map the tile’s location within the larger $224 \times 224$ frames.
-    \item Quantized Score ($Q$): The posterior probability is scaled to a single-byte integer ($Q = P \times 255$). This significantly reduces communication overhead compared to sending bulky decimal numbers\cite{espressif2024espdl}.
-    
-\end{itemize}
-
-\subsection{Output Layer (Aggregation \& Logic)}
-As the final stage of the architecture, this layer serves as the central decision-making layer:
-% \begin{itemize}
-%     \item \textbf{Data Synthesis:} It aggregates the distributed output vectors from the \gls{hpd} Model Layer.
-%     \item \textbf{Final Prediction:} By synthesizing the localized data, the Output Layer produces the final global \gls{hpd} prediction for the entire captured frame.
-% \end{itemize}
-\newpage
-\section{Hardware Used}
-The core hardware of this project is built around ESP32-family \glspl{mcu}. It is chosen because they are low-cost, low-power, and capable of running edge-level machine learning tasks. This system follows a distributed architecture. Here, image capturing, processing and decision-making are separated across different ESP32 devices to overcome memory and processing limitations of a single microcontroller. This hardware design allows the system to perform real-time \gls{hpd} without relying on cloud servers, making it faster, more private, and more energy efficient.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.75\textwidth]{src/images/wi.png}
-    \caption{Wiring Interface between Programming (FTDI), Processing (ESP32-S3), and Visualization (I2C LCD) Units.}
-    \label{fig:Wiring.}
-\end{figure}
-The hardware architecture as shown in \ref{fig:Wiring.} consists of a distributed processing network designed for real-time data acquisition and visualization. The system is partitioned into three primary functional blocks: the Sensing Node (ESP32-CAM), the Processing Cluster (ESP32-S3 units), and the Output Interface (I2C LCD connected via ESP32)
-\subsection{\textbf{ESP32-CAM}}
-The \gls{esp}-CAM module is used as the input hardware of the system. Its main role is to capture visual data from the environment. Here, the camera continuously captures images of $224 \times 224$ at a controlled rate of 1 every 15 seconds. Since color images require more memory and computation, the \gls{esp}-CAM converts the captured rgb images into grayscale format. After this, the high-resolution image is divided into smaller tiles of $96 \times 96$ with overlap of $25\%$ between adjacent tiles. These smaller image tiles are easier to process and then transmit to other \gls{esp} devices using \gls{espnow} protocol for further processing. Here, the tiles are evenly distributed between the two esp32s3 devices when the total number of tiles is even; if the number of tiles is odd, the first node is assigned one additional tile.
-
-\subsection{\textbf{USB to TTL converter (FTDI)}}
-The USB to TTL (FTDI) converter is used to connect the ESP32-CAM boards to a laptop for programming. It is because ESP32-CAM does not have a built-in USB interface for programming or serial communication. The FTDI module acts as a bridge between them since a laptop communicates using USB and the ESP32 uses TTL serial (UART) signals. In this project, the FTDI also supplies 5V power from the laptop via USB, which removes the need for an external power source.
-
-Connect GPIO0 to GND in ESP32-CAM for flashing. This indicates that the ESP32-CAM is ready to receive new code. After uploading the code, we can disconnect GPIO0 from GND.
-
-% \subsection*{Wiring the FTDI to ESP32-CAM}
-\begin{table}[h]
-\centering
-\caption{Wiring the FTDI to ESP32-CAM}
-\begin{tabular}{|c|c|}
-\hline
-\textbf{FTDI} & \textbf{ESP32-CAM} \\ \hline
-VCC           & 5V                 \\ \hline
-GND           & GND                \\ \hline
-RX            & U0T                \\ \hline
-TX            & U0R                \\ \hline
-\end{tabular}
-\end{table}
-
-\subsection{\textbf{ESP32-S3}}
-The ESP32-S3 \glspl{mcu} act as the processing or inference nodes in the system. Each ESP32-S3 receives a small image tile from the ESP32-CAM and runs a \gls{tinyml}-based \gls{hpd} model on it. These boards are specially selected because they are optimized for \gls{ai} tasks and support low-bit operations. These are essential for running neural networks within limited memory. Here, each ESP32-S3 processes its assigned tile independently and determines whether human features are present. Instead of sending large image data back, it sends only a compact result, such as a confidence score and tile location, which minimizes communication overhead.
-
- \subsection{\textbf{ESP32}}
-The ESP32 board is used as the aggregation node of the system. It is used to collect the results from all ESP32-S3 and uses attention weight from all tiles to compute attention score using SoftMax function and then uses the attention score to perform weighted sum of feature maps of tiles. Then, it passes the new feature map through classifier layer to compute the confidence score. This confidence score is to form a final decision about human presence in the entire scene. 
-
-
-\subsection{\textbf{I2C LCD Display}}
-In this system, the I2C LCD display is used to show the final output of the project. After the ESP32-S3 boards finish processing the image tiles and send their results, the ESP32 combines all the information and decides whether a human is present or not. This final decision is then shown on the LCD screen as \textbf{“Human Detected”} or \textbf{“No Human Detected”.} The I2C LCD has been chosen because it needs only two wires for communication. It keeps the wiring simple and saves GPIO pins on the ESP32.
-
-% \subsection*{Wiring the I2C LCD to ESP32 }
-\begin{table}[h]
-\centering
-\caption{Wiring the I2C LCD to ESP32}
-\begin{tabular}{|c|c|c|}
-\hline
-\textbf{I2C LCD Pin} & \textbf{ESP32 Pin} & \textbf{Purpose}     \\ \hline
-VCC                  & 3.3V or 5V         & Power Supply         \\ \hline
-GND                  & GND                & Ground Connection    \\ \hline
-SDA                  & GPIO21             & Data Line            \\ \hline
-SCL                  & GPIO22             & Clock Line           \\ \hline
-\end{tabular}
-\end{table}
-
-
-\subsection{\textbf{Power Supply}}
-All the hardware components in the system are powered using a laptop via USB connections. The laptop provides a stable 5V power supply to the ESP32-CAM, ESP32-S3, and ESP32 boards during development and testing. This simplifies the setup, eliminates the need for external power adapters, and allows easy monitoring and debugging through serial communication. 
-
 \section{Model Selection and Optimization Pipeline}
 \subsection{Base Model Selection and Training}
-\subsection*{1.Modified MobileNetV2 Architecture}
-
+\subsection*{1.MobileNetV2 Architecture}
 The proposed system utilizes a \gls{cnn} based on a modified mobilenetv2 backbone, specifically optimized for binary classification tasks where $f_{\theta} : \mathbb{R}^{N \times 1 \times H \times W} \to \mathbb{R}^{N \times 2}$. The architecture is designed to balance high-level feature extraction with the strict hardware constraints of \glspl{mcu}.
 
 \subsection*{1.1.Grayscale Adaptation and Transfer Learning}
@@ -176,7 +52,7 @@ The purpose of this component is to extract general features without learning, t
     \item \textbf{Weight generation}: Weights are sampled from a normal distribution $W \sim \mathcal{N}(0, 1)$ and then thresholded to obtain sparsity $s$:
     \[ \text{binary\_weight}_{i,j,k,l} = \begin{cases} 1 & \text{if } W_{i,j,k,l} > \text{threshold} \\ -1 & \text{if } W_{i,j,k,l} < -\text{threshold} \\ 0 & \text{otherwise} \end{cases} \]
     \item The sparsity parameter $s$ controls the fraction of zero weights.
-    \item These weights are stored as a buffer (\texttt{register\_buffer}), meaning they are not updated during training, ensuring stability and a low memory footprint.
+    \item These weights are stored as a buffer (\textit{register\_buffer}), meaning they are not updated during training, ensuring stability and a low memory footprint.
 \end{itemize}
 The key idea is to capture general directional/edge patterns efficiently, similar to handcrafted filters like Sobel, but stochastically generated.
 \subsection*{2.2.2 Non-linearity (ReLU)}
@@ -253,7 +129,7 @@ The tiling stage prepares the input for localized processing.
 \end{itemize}
 
 \subsection*{2.8 Tile Feature Extractor (\gls{lbc}-based)}
-Each tile passes through the \texttt{tile\_extractor} which follows this architecture:
+Each tile passes through the \textit{tile\_extractor} which follows this architecture:
 \begin{itemize}
     \item \textbf{LBC Layer 1:} $1 \rightarrow 16$ channels, $\text{sparsity}=0.9$.
     \item \textbf{MaxPool2d:} Kernel size 2, halves spatial dimensions.
@@ -336,14 +212,134 @@ The LBCLayer reduces \glspl{flops} significantly:
     \item \textbf{Parallelizable:} Each tile is processed independently.
     \item \textbf{Low-data regime:} Predefined anchors reduce training requirements.
 \end{enumerate}
+\newpage
+\section{Hardware Specifications and system topology}
+The project utilizes a decentralized, multi-node architecture deployed on ESP32 and ESP32-S3 \glspl{mcu}. To optimize throughput and manage resource constraints, the system is organized into a three-tier hierarchical structure.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{src/images/Downsampling.drawio.png}
+    \caption{System Architecture showing main components and their interactions.}
+    \label{fig:System Architecture showing main components and their interactions.}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\textwidth]{src/images/Untitled Diagram.drawio (1).png}
+    \caption{Detailed Data Flow Diagram of the Tiling and Inference Pipeline.}
+    \label{fig:detailed_workflow}
+\end{figure}
+\subsection{Input Layer}
+Centered around an ESP32-CAM\cite{dfrobot2024ens160}, this layer manages high-bandwidth data acquisition and initial pre-processing. Its primary role is to prepare and distribute workloads to the processing tier through the following pipeline:
+% \subsubsection{\textbf{Temporal Downsampling}}
+% The raw input from the ESP32-CAM typically operates at a higher frame rate (e.g., 10 - 15 \gls{fps}) than the backend processing can handle. The input node implements a timer-driven interrupt to capture exactly 1 frame every 1000 \gls{ms}.
+
+\subsubsection{\textbf{Luminance Conversion (Grayscale)}}
+Processing three-channel RGB data significantly inflates the memory buffer requirements and computational complexity ($O(3n)$ vs $O(n)$). The captured frame has to be converted to an 8-bit grayscale format using a weighted luminance formula as given in \eqref{eq:42}  \cite{itu2011bt601}.
+\begin{equation}
+    \label{eq:42}
+    P(y = 1 \mid x) = \frac{e^{z_{\text{person}}}}{e^{z_{\text{bg}}} + e^{z_{\text{person}}}}
+\end{equation}
+% \cite{goodfellow2016deep}
+Where $z_{\text{person}}$ and $z_{\text{bg}}$ are the logits for the "person" and "background" classes, respectively. This conversion reduces the data size by two-thirds, significantly easing the memory and computational load on the subsequent processing nodes.
+
+This reduces the input data size by $66.6\%$, freeing up critical heap memory (\gls{sram}) for the tiling and distribution buffers.
+\begin{equation}
+    \label{eq:greyscale}
+    Y= 0.299R +0.587G +0.114B
+\end{equation}
+% \begin{figure}[htbp]
+%     \centering
+%     \includegraphics[width=1\linewidth]{src/images/RGBtoGreyscale.png}
+%     \caption{RGB to Grayscale}\cite{skimage_grayscale}
+%     \label{fig: RGB to Grayscale}
+% \end{figure}
+\subsubsection{\textbf{Spatial Partitioning Distribution}}
+The process begins with the Tiling module, which extracts $n$ overlapping tiles from the source image. This step is critical for maintaining high-resolution features on resource-constrained hardware. By using a 25\% overlap between adjacent tiles, the system ensures that human subjects positioned at tile boundaries are not bisected, preserving spatial continuity for the feature extractor.
+
+\subsection{Communication Protocol Implementation}
+The \gls{esp} protocol will be the communication backbone\cite{espnow_doc}, selected for its highly efficient, peer-to-peer data exchange capabilities and low-latency feedback. While \gls{esp} is efficient, its throughput is limited (observed maximums up to 771 \gls{kb}/s). Therefore, the implementation will rely on efficient data packing, ensuring that tile data transfer maximizes the available throughput and that result packets adhere to the small packet size limits ($<250$ bytes for control and aggregation data). The ability to transfer data quickly is paramount, as the latency gained by parallel processing can be quickly lost if the communication time dominates the total system latency.
+
+
+\subsection{Feature Extraction Layer}
+\begin{itemize}
+    \item Parallel Processing: Each node receives a specific low-resolution tile from the Input Layer.
+    \item Local Inference: 
+    \item Node ID: A 1-byte identifier used to map the tile’s location within the larger $224 \times 224$ frames.
+    \item Quantized Score ($Q$): The posterior probability is scaled to a single-byte integer ($Q = P \times 255$). This significantly reduces communication overhead compared to sending bulky decimal numbers\cite{espressif2024espdl}.
+    
+\end{itemize}
+
+\subsection{Output Layer (Aggregation \& Logic)}
+As the final stage of the architecture, this layer serves as the central decision-making layer:
+% \begin{itemize}
+%     \item \textbf{Data Synthesis:} It aggregates the distributed output vectors from the \gls{hpd} Model Layer.
+%     \item \textbf{Final Prediction:} By synthesizing the localized data, the Output Layer produces the final global \gls{hpd} prediction for the entire captured frame.
+% \end{itemize}
+\newpage
+\section{Hardware Used}
+The core hardware of this project is built around ESP32-family \glspl{mcu}. It is chosen because they are low-cost, low-power, and capable of running edge-level machine learning tasks. This system follows a distributed architecture. Here, image capturing, processing and decision-making are separated across different ESP32 devices to overcome memory and processing limitations of a single microcontroller. This hardware design allows the system to perform real-time \gls{hpd} without relying on cloud servers, making it faster, more private, and more energy efficient.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\textwidth]{src/images/wi.png}
+    \caption{Wiring Interface between Programming (FTDI), Processing (ESP32-S3), and Visualization (I2C \gls{lcd}) Units.}
+    \label{fig:Wiring.}
+\end{figure}
+The hardware architecture as shown in \ref{fig:Wiring.} consists of a distributed processing network designed for real-time data acquisition and visualization. The system is partitioned into three primary functional blocks: the Sensing Node (ESP32-CAM), the Processing Cluster (ESP32-S3 units), and the Output Interface (I2C \gls{lcd} connected via ESP32)
+\subsection{\textbf{ESP32-CAM}}
+The \gls{esp}-CAM module is used as the input hardware of the system. Its main role is to capture visual data from the environment. Here, the camera continuously captures images of $224 \times 224$ at a controlled rate of 1 every 15 seconds. Since color images require more memory and computation, the \gls{esp}-CAM converts the captured rgb images into grayscale format. After this, the high-resolution image is divided into smaller tiles of $96 \times 96$ with overlap of $25\%$ between adjacent tiles. These smaller image tiles are easier to process and then transmit to other \gls{esp} devices using \gls{espnow} protocol for further processing. Here, the tiles are evenly distributed between the two esp32s3 devices when the total number of tiles is even; if the number of tiles is odd, the first node is assigned one additional tile.
+
+\subsection{\textbf{USB to TTL converter (FTDI)}}
+The USB to TTL (FTDI) converter is used to connect the ESP32-CAM boards to a laptop for programming. It is because ESP32-CAM does not have a built-in USB interface for programming or serial communication. The FTDI module acts as a bridge between them since a laptop communicates using USB and the ESP32 uses TTL serial (UART) signals. In this project, the FTDI also supplies 5V power from the laptop via USB, which removes the need for an external power source.
+
+Connect GPIO0 to GND in ESP32-CAM for flashing. This indicates that the ESP32-CAM is ready to receive new code. After uploading the code, we can disconnect GPIO0 from GND.
+
+% \subsection*{Wiring the FTDI to ESP32-CAM}
+\begin{table}[h]
+\centering
+\caption{Wiring the FTDI to ESP32-CAM}
+\begin{tabular}{|c|c|}
+\hline
+\textbf{FTDI} & \textbf{ESP32-CAM} \\ \hline
+VCC           & 5V                 \\ \hline
+GND           & GND                \\ \hline
+RX            & U0T                \\ \hline
+TX            & U0R                \\ \hline
+\end{tabular}
+\end{table}
+
+\subsection{\textbf{ESP32-S3}}
+The ESP32-S3 \glspl{mcu} act as the processing or inference nodes in the system. Each ESP32-S3 receives a small image tile from the ESP32-CAM and runs a \gls{tinyml}-based \gls{hpd} model on it. These boards are specially selected because they are optimized for \gls{ai} tasks and support low-bit operations. These are essential for running neural networks within limited memory. Here, each ESP32-S3 processes its assigned tile independently and determines whether human features are present. Instead of sending large image data back, it sends only a compact result, such as a confidence score and tile location, which minimizes communication overhead.
+
+ \subsection{\textbf{ESP32}}
+The ESP32 board is used as the aggregation node of the system. It is used to collect the results from all ESP32-S3 and uses attention weight from all tiles to compute attention score using SoftMax function and then uses the attention score to perform weighted sum of feature maps of tiles. Then, it passes the new feature map through classifier layer to compute the confidence score. This confidence score is to form a final decision about human presence in the entire scene. 
+
+
+\subsection{\textbf{I2C \gls{lcd} Display}}
+In this system, the I2C \gls{lcd} display is used to show the final output of the project. After the ESP32-S3 boards finish processing the image tiles and send their results, the ESP32 combines all the information and decides whether a human is present or not. This final decision is then shown on the \gls{lcd} screen as \textbf{“Human Detected”} or \textbf{“No Human Detected”.} The I2C \gls{lcd} has been chosen because it needs only two wires for communication. It keeps the wiring simple and saves GPIO pins on the ESP32.
+
+% \subsection*{Wiring the I2C LCD to ESP32 }
+\begin{table}[h]
+\centering
+\caption{Wiring the I2C LCD to ESP32}
+\begin{tabular}{|c|c|c|}
+\hline
+\textbf{I2C LCD Pin} & \textbf{ESP32 Pin} & \textbf{Purpose}     \\ \hline
+VCC                  & 3.3V or 5V         & Power Supply         \\ \hline
+GND                  & GND                & Ground Connection    \\ \hline
+SDA                  & GPIO21             & Data Line            \\ \hline
+SCL                  & GPIO22             & Clock Line           \\ \hline
+\end{tabular}
+\end{table}
+
+
+\subsection{\textbf{Power Supply}}
+All the hardware components in the system are powered using a laptop via USB connections. The laptop provides a stable 5V power supply to the ESP32-CAM, ESP32-S3, and ESP32 boards during development and testing. This simplifies the setup, eliminates the need for external power adapters, and allows easy monitoring and debugging through serial communication. 
 
 \subsection{Low-Bit Quantization Implementation}
 The baseline operational model will utilize \gls{ptq} to convert the \gls{hpd} model to symmetric \gls{int8} weights and asymmetric \gls{int8} activations. This approach is selected for its demonstrated success in significantly reducing computational complexity while maintaining high classification reliability in resource-constrained deployments. Further optimization will involve the experimental deployment of \gls{int4} quantization for specific non-critical layers. This mixed-precision approach will push memory reduction to its architectural limits, targeting a final Flash footprint of $<1.0$ \gls{mb}.
 
-To mitigate the precision loss associated with such aggressive compressio\begin{equation}
-    \label{eq:greyscale}
-    Y= 0.299R +0.587G +0.114B
-\end{equation}n, calibration datasets will be utilized in conjunction with layer-wise equalization techniques. These methods balance weight ranges across the custom architecture, aiming for maximum accuracy retention (targeting lesser than $90\%$ of the pruned \gls{fp32} baseline). This optimization strategy is essential to ensure that the model remains robust for presence detection while fitting within the 512 \gls{kb} \gls{sram} limit. 
+To mitigate the precision loss associated with such aggressive compression, calibration datasets will be utilized in conjunction with layer-wise equalization techniques. These methods balance weight ranges across the custom architecture, aiming for maximum accuracy retention (targeting lesser than $90\%$ of the pruned \gls{fp32} baseline). This optimization strategy is essential to ensure that the model remains robust for presence detection while fitting within the 512 \gls{kb} \gls{sram} limit. 
 
 \section{Evaluation Metrics and Performance Framework}
 \subsection{Detection Reliability Matrix (The Deep Learning Layer)}
@@ -364,15 +360,11 @@ To ensure environmental noise (shadows, \gls{hvac} airflow) does not trigger fal
 Precision = \gls{tp} / (\gls{tp}+\gls{fp})
 \end{equation}
 
-\textbf{\gls{map}@0.5 (Mean Average Precision)}
-
-The \gls{coco} dataset standards were used to evaluate \gls{map}@0.5 which concentrated on the person class at a $50\%$ \gls{iou} criterion. This is the official Deep Learning object detection benchmark.
-
 \subsection{Distributed System Efficiency Matrix (The Computing Layer)}
 We must measure the benefits of distributing the inference burden among several ESP32-S3 nodes using the \gls{dat} framework as this project makes use of a Distributed Cluster.
 
 \textbf{End-to-End Latency (total):} The duration between the Master node's picture acquisition and the ultimate detection outcome.
 
-\textbf{System Throughput: } \glspl{fps} is the unit of measurement for system throughput. 1.0 \gls{fps} is set as the standard for minimum real-time occupancy sensing due to the limitations of the ESP32-S3 and the overhead of tiling.
+\textbf{Memory Footprint: }
 
-\textbf{Communication Overhead:} The proportion of the entire cycle used for local Deep learning computation as opposed to \gls{esp} tile transmission.
+\textbf{Communication Delay:} The proportion of the entire cycle used for local Deep learning computation as opposed to \gls{esp} tile transmission.
