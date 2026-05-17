@@ -270,14 +270,15 @@ The \gls{esp} protocol will be the communication backbone\cite{espnow_doc}, sele
 \end{itemize}
 
 \subsection{Output Layer (Aggregation \& Logic)}
-As the final stage of the architecture, this layer serves as the central decision-making layer:
-% \begin{itemize}
-%     \item \textbf{Data Synthesis:} It aggregates the distributed output vectors from the \gls{hpd} Model Layer.
-%     \item \textbf{Final Prediction:} By synthesizing the localized data, the Output Layer produces the final global \gls{hpd} prediction for the entire captured frame.
-% \end{itemize}
+This layer is the final stage of the architecture and it is the core decision making layer. The feature map and the attention weight of each tile are taken from the feature extraction nodes, and the following operations are performed:
+ \begin{itemize}
+     \item \textbf{Attention score calculation:} The attention score for each tile is computed using the SoftMax function, which normalizes the quantized scores into a probability distribution.This allows the system to weigh the importance of each tile’s features when making the final decision.
+     \item \textbf{Weighted faeture aggregation:} Using the attention scores, we do a weighted sum of the feature maps from all tiles. This effectively combines the information, while giving more weight to tiles that are more likely to contain human features.
+     \item \textbf{Final Classification:}The aggregated feature map is then passed to a classifier layer (e.g., fully connected layer) to compute a confidence score for the presence of a human in the whole scene. This score is then used to make a binary decision (human detected or not) that can be displayed on an output device such as an LCD screen.
+ \end{itemize}
 \newpage
 \section{Hardware Used}
-The core hardware of this project is built around ESP32-family \glspl{mcu}. It is chosen because they are low-cost, low-power, and capable of running edge-level machine learning tasks. This system follows a distributed architecture. Here, image capturing, processing and decision-making are separated across different ESP32 devices to overcome memory and processing limitations of a single microcontroller. This hardware design allows the system to perform real-time \gls{hpd} without relying on cloud servers, making it faster, more private, and more energy efficient.
+The core hardware of this project is based on the \glspl{mcu} of the ESP32-family. It is chosen because they are low cost, low power, and can run edge-level machine learning tasks. This system uses a distributed architecture. Here, image capturing, processing and decision-making are separated across different ESP32 devices to overcome memory and processing limitations of a single microcontroller. This hardware design allows the system to perform real-time \gls{hpd} without relying on cloud servers, making it faster, more private, and more energy efficient.
 
 \begin{figure}[H]
     \centering
@@ -309,7 +310,7 @@ TX            & U0R                \\ \hline
 \end{table}
 
 \subsection{\textbf{ESP32-S3}}
-The ESP32-S3 \glspl{mcu} act as the processing or inference nodes in the system. Each ESP32-S3 receives a small image tile from the ESP32-CAM and runs a \gls{tinyml}-based \gls{hpd} model on it. These boards are specially selected because they are optimized for \gls{ai} tasks and support low-bit operations. These are essential for running neural networks within limited memory. Here, each ESP32-S3 processes its assigned tile independently and determines whether human features are present. Instead of sending large image data back, it sends only a compact result, such as a confidence score and tile location, which minimizes communication overhead.
+The ESP32-S3 \glspl{mcu} act as the processing or inference nodes in the system.Each ESP32-S3 receives a small image tile from the ESP32-CAM, on which it runs a Tiny Machine Learning (TinyML)-based HPD model. These boards are selected because they are optimized for AI workloads and support low-bit operations. These are necessary to run neural networks with limited memory. Each ESP32-S3 processes its assigned tile independently and decides if human features are present.Each ESP32-S3 receives a small image tile from the ESP32-CAM, on which it runs a Tiny Machine Learning (TinyML)-based HPD model. These boards are selected because they are optimized for AI workloads and support low-bit operations. These are necessary to run neural networks with limited memory. Each ESP32-S3 processes its assigned tile independently and decides if human features are present.Instead of sending large image data back, it sends only a compact result, such as a confidence score and tile location, which minimizes communication overhead.
 
  \subsection{\textbf{ESP32}}
 The ESP32 board is used as the aggregation node of the system. It is used to collect the results from all ESP32-S3 and uses attention weight from all tiles to compute attention score using SoftMax function and then uses the attention score to perform weighted sum of feature maps of tiles. Then, it passes the new feature map through classifier layer to compute the confidence score. This confidence score is to form a final decision about human presence in the entire scene. 
@@ -334,12 +335,13 @@ SCL                  & GPIO22             & Clock Line           \\ \hline
 
 
 \subsection{\textbf{Power Supply}}
-All the hardware components in the system are powered using a laptop via USB connections. The laptop provides a stable 5V power supply to the ESP32-CAM, ESP32-S3, and ESP32 boards during development and testing. This simplifies the setup, eliminates the need for external power adapters, and allows easy monitoring and debugging through serial communication. 
-
+All hardware components in the system are powered through USB connections using a laptop During development and testing, the laptop provides stable 5V power supply to the ESP32-CAM, ESP32-S3 and ESP32 boards. This simplifies setup, removes the need for external power adapters and makes monitoring and debugging via serial communication easy.
 \subsection{Low-Bit Quantization Implementation}
-The baseline operational model will utilize \gls{ptq} to convert the \gls{hpd} model to symmetric \gls{int8} weights and asymmetric \gls{int8} activations. This approach is selected for its demonstrated success in significantly reducing computational complexity while maintaining high classification reliability in resource-constrained deployments. Further optimization will involve the experimental deployment of \gls{int4} quantization for specific non-critical layers. This mixed-precision approach will push memory reduction to its architectural limits, targeting a final Flash footprint of $<1.0$ \gls{mb}.
+The baseline operational model will use Post-Training Quantization (PTQ) to convert the HPD model to symmetric 8-bit Integer (INT8) weights and asymmetric INT8 activations. This approach is selected for its proven success in significantly
 
-To mitigate the precision loss associated with such aggressive compression, calibration datasets will be utilized in conjunction with layer-wise equalization techniques. These methods balance weight ranges across the custom architecture, aiming for maximum accuracy retention (targeting lesser than $90\%$ of the pruned \gls{fp32} baseline). This optimization strategy is essential to ensure that the model remains robust for presence detection while fitting within the 512 \gls{kb} \gls{sram} limit. 
+while ensuring high classification reliability in resource-constrained deployments.Further optimization will involve the experimental deployment of \gls{int4} quantization for specific non-critical layers. This mixed-precision approach will push memory reduction to its architectural limits, targeting a final Flash footprint of $<1.0$ \gls{mb}.
+
+To compensate for the precision loss due to such aggressive compression, calibration datasets will be used along with layer-wise equalization techniques. These methods balance weight ranges in the custom architecture with the aim of maximal accuracy retention less than $90\%$ of the pruned 32-bit Floating Point \gls{fp32} baseline. This optimization is necessary to provide a robust model for presence detection, and to fit within the 512 \gls{kb} \gls{sram} limit.
 
 \section{Evaluation Metrics and Performance Framework}
 \subsection{Detection Reliability Matrix (The Deep Learning Layer)}

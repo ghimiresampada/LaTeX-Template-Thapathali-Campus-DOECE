@@ -102,13 +102,7 @@ shows consistent reduction in training loss over 45 epochs, decreasing steadily 
 0.70 to approximately 0.51, while the validation loss remains highly volatile throughout
 training with sharp spikes reaching as high as 1.10, a behaviour attributed to the
 limited dataset size of 737 training samples where individual batches exert
-disproportionate influence on the validation metric. The normalised confusion matrix
-reveals broadly balanced per-class recall of 0.72 for Class~0 and 0.71 for Class~1,
-confirming that the weighted sampling strategy successfully avoided majority-class
-collapse, though the 28\% false alarm rate and 29\% missed detection rate indicate that
-the binary convolutional features lack sufficient discriminative precision to cleanly
-separate the two classes, a direct consequence of the constrained model capacity and
-limited training data.
+disproportionate influence on the validation metric. The normalised confusion matrix indicates broadly balanced per-class recall of 0.72 for Class 0 and 0.71 for Class 1, indicating that the weighted sampling strategy was successful in avoiding majority-class collapse. The 28\% false alarm rate and 29\% missed detection rate suggest that the binary convolutional features lack sufficient discriminative precision to separate the two classes cleanly, a direct consequence of the constrained model capacity and limited training data.
 \begin{table}[H]
 \renewcommand{\arraystretch}{1.25}
 \caption{Training Run Summary}
@@ -164,10 +158,7 @@ Weighted average     & 0.7292 & 0.7174 & 0.7203 & 92 \\
 % ============================================================
 \section{Comparative Analysis: LBCNN vs.\ MobileNetV2}
 % ============================================================
-\Cref{tab:model_comparison} summarises the key performance and resource metrics for both
-architectures evaluated in this work. The \gls{lbcnn} model was designed for direct deployment on
-resource-constrained \glspl{mcu}, while MobileNetV2 serves as a higher-capacity reference
-baseline trained on a larger dataset.
+\Cref{tab:model_comparison} summarises the key performance and resource metrics for both architectures studied in this work. The \gls{lbcnn} model is intended for direct deployment on resource-constrained \glspl{mcu} while MobileNetV2 is a higher capacity reference baseline trained on a larger dataset.
 
 \begin{table}[H]
 \renewcommand{\arraystretch}{1.25}
@@ -202,56 +193,17 @@ Model size (FP32)                & 80 KB               & 8490 KB                
 
 \section{Overall Comparative Analysis}
 
-The experimental results summarised in \cref{tab:model_comparison} demonstrate a clear
-performance advantage for MobileNetV2 over the \gls{lbcnn} across all evaluation metrics.
-MobileNetV2 achieves a test accuracy of 86.18\% and an \gls{auc} of 0.931, compared to
-71.74\% and 0.777 for the \gls{lbcnn} representing improvements of 14.44 percentage
-points and 0.154 respectively. This gap is consistent across all per-class metrics, with
-MobileNetV2 outperforming \gls{lbcnn} on both precision and recall for both classes.
+The experimental results summarised in \cref{tab:model_comparison} show that the MobileNetV2 outperforms the LBCNN in all the evaluation metrics with a clear edge in performance. The MobileNetV2 achieved $86.18\%$ test accuracy and $0.931\%$ gls{auc}, while the LBCNN achieved $71.74\%$ and $0.777\%$, respectively, which represents an improvement of $14.44\%$ percentage points and $0.154\%$. This gap is present for all the per-class metrics, with MobileNetV2 being better than gls{lbcnn} in terms of both precision and recall for both classes.
 
-The difference in training behaviour is equally pronounced. The \gls{lbcnn} loss and
-accuracy curves exhibit high volatility throughout all 45 epochs, with validation accuracy
-oscillating sharply between consecutive epochs. This instability is a direct consequence
-of the extremely small training set (737 samples), where individual batches exert
-disproportionate influence on the gradient signal. MobileNetV2, trained on 18,432 samples
-with ImageNet pretrained weights, converges smoothly within 12 epochs, with both loss and
-accuracy curves declining and rising monotonically. The pretrained initialisation
-eliminates the need to learn low-level features from scratch, and the larger dataset
-provides stable gradients together explaining why MobileNetV2 converges faster, more
-cleanly, and to a significantly better optimum.
+The difference in training behaviour is equally clear. The gls{lbcnn} loss and accuracy curves are very volatile for all the 45 epochs with the validation accuracy jumping sharply between successive epochs. The instability is a direct result of the very small training set (737 samples) where individual batches have an outsized impact on the gradient signal. The MobileNetV2 model trained on 18,432 samples with ImageNet pretrained weights converges smoothly in 12 epochs, with the loss and accuracy curves declining and increasing monotonically, respectively. The pretrained initialisation removes the need to learn low level features from scratch, and the larger dataset provides stable gradients together explaining why MobileNetV2 converges faster, more cleanly and to a significantly better optimum..
 
-The roc and precision--recall curves reinforce this picture. MobileNetV2's roc
-curve rises steeply toward the top-left corner, achieving high true positive rates at low
-false positive rates, reflecting well-separated class probability scores. The \gls{lbcnn}
-roc curve rises more gradually, indicating that its 64-dimensional binary feature
-representations provide weaker class separability. Similarly, MobileNetV2 sustains higher
-precision across a broader range of recall thresholds, while \gls{lbcnn} precision drops
-more sharply as recall increases consistent with a model operating near the limits of
-its representational capacity.
+This picture is supported by the roc and precision–recall curves. The roc curve of MobileNetV2 goes up sharply towards the top left corner, suggesting high true positive rates for low false positive rates and demonstrating that the class probability scores are well separated. The \gls{lbcnn} ROC curve is more gradual, reflecting that its 64-dimensional binary feature representations achieve less class separability. Similarly, MobileNetV2 achieves higher precision over a wider range of recall thresholds. \gls{lbcnn} precision drops more quickly with increasing recall, in line with a model working close to the limits of its representational capacity.
 
-Despite this performance gap, the comparison must be interpreted in the context of the
-fundamentally different constraints under which each model operates. MobileNetV2 contains
-2,225,858 parameters and occupies 8.49~MB in FP32 far exceeding the memory budget of
-any commodity \gls{mcu}. The \gls{lbcnn}, with only 19,779 parameters and a deployed
-size of just 0.02~MB after INT8 quantization, fits comfortably within the 512~KB
-\gls{sram} of the ESP32-S3. The 14.44 percentage point accuracy trade-off is therefore
-not a shortcoming but a deliberate consequence of designing for deployment on hardware
-that is approximately \textbf{425$\times$ more memory-constrained} than what MobileNetV2
-requires. Within the scope of real-time, battery-powered, GPU-free edge inference, the
-\gls{lbcnn} represents a viable and principled solution to the accuracy--efficiency
-trade-off inherent in \gls{tinyml} deployments.
+However, this comparison should be understood in the context of the fundamentally different constraints under which each model operates. MobileNetV2 has 2,225,858 parameters and takes up 8.49~MB in FP32, which is way beyond the memory budget of any commodity \gls{mcu}. The \gls{lbcnn}, which has only 19,779 parameters and a deployed size of just 0.02 MB after INT8 quantization, easily fits within the ESP32-S3’s 512~KB \gls{sram}. The 14.44 percentage point accuracy trade-off is thus not a shortcoming but an intentional result of designing for deployment on hardware that is about \textbf{425$\times$ more memory-constrained} than what MobileNetV2 requires. For real-time, battery-powered, GPU-free edge inference, \gls{lbcnn} offers a principled and practical solution to the accuracy-efficiency trade-off of \gls{tinyml} deployments.
 
 \section{System Overview and Evaluation Methodology}
  
-The distributed inference pipeline was evaluated across four distinct processing stages:
-frame capture and tiling at the \gls{esp}-CAM, tile transmission from the \gls{esp}-CAM
-to the two ESP32-S3 worker nodes, tile-level feature extraction and attention scoring at
-each worker node, weighted feature transmission from the worker nodes to the ESP32
-aggregator, and final classification at the aggregator. Each stage was benchmarked
-independently using dedicated test sketches with synthetic inputs to isolate
-stage-specific latency from end-to-end confounding factors. All timing measurements were
-recorded using the ESP32's hardware \textit{micros()} counter at 240~MHz CPU
-frequency. \Cref{tab:pipeline_latency} presents the complete latency breakdown across
+We evaluate this distributed inference pipeline for four different processing stages: frame capture and tiling at the \gls{esp}-CAM, tile transmission from the \gls{esp}-CAM to the two ESP32-S3 worker nodes, tile-level feature extraction and attention scoring at each worker node, weighted feature transmission from the worker nodes to the ESP32 aggregator, and final classification at the aggregator. Each stage was independently benchmarked against dedicated test sketches with synthetic inputs to isolate stage specific latency from end-to-end confounding factors. All the timing measurements were done using the ESP32 hardware \textit{micros()} counter, with the CPU clock set to 240MHz. \Cref{tab:pipeline_latency} presents the complete latency breakdown across
 all pipeline stages.
  
 \begin{table}[H]
@@ -287,12 +239,7 @@ Total pipeline (critical path)
  
 \section{ESP-CAM: Frame Capture and Tiling}
  
-The \gls{esp}-CAM node captures a 224×224 grayscale frame and partitions it into nine
-overlapping 96×96 tiles using a step size of 72 pixels (25\% overlap) in both spatial
-axes. The complete capture-to-tile pipeline executes in 4~ms, making this stage entirely
-negligible relative to all downstream processing. This confirms that the tiling strategy
-itself introduces no meaningful overhead and that the \gls{esp}-CAM is capable of
-sustaining the intended 1~\gls{fps} frame rate from a capture perspective alone.
+The \gls{esp}-CAM node captures a 224$\times$224 gray-scale frame and splits it into nine overlapping 96$\times$96 tiles with a step size of 72 pixels (25\% overlap) along both spatial axes. The whole capture-to-tile pipeline takes 4~ms, rendering this stage completely insignificant compared to all downstream processing. This confirms the fact that the tiling strategy itself incurs no meaningful overhead, and that the \gls{esp}-CAM is able to achieve the target 1~\gls{fps} frame rate from a capture perspective alone.
  
 The 4~ms figure encompasses camera sensor readout, RGB565-to-grayscale conversion, and
 the nine sequential tile extraction operations. At this rate, the \gls{esp}-CAM could
@@ -301,32 +248,13 @@ never be the bottleneck regardless of how the downstream pipeline is optimised.
  
 \section{Tile Transmission: ESP-CAM to Worker Nodes}
  
-Transmitting tiles from the \gls{esp}-CAM to the two worker nodes via \gls{esp}-NOW
-represents the first significant latency stage in the pipeline. Since each 96×96 tile
-comprises 9,216 bytes and the \gls{esp}-NOW protocol imposes a 250-byte maximum frame
-size, each tile must be fragmented into 38 sequential packets of 247 data bytes each,
-with a synchronous ACK-wait between fragments for flow control.
+The first latency stage in the pipeline is the transmission of tiles from the \gls{esp}-CAM to the two worker nodes via \gls{esp}-NOW. Each tile is 96$\times$96, and is 9,216 bytes in size. \gls{esp}-NOW has a maximum frame size of 250 bytes, so each tile is fragmented into 38 sequential packets of 247 data bytes each, with a synchronous ACK-wait between fragments for flow control.
  
-Worker~1, which receives tiles 0--4 (five tiles), incurred a total transmission time of
-3,243~ms. Worker~2, receiving tiles 5--8 (four tiles), required 1,183~ms. The disparity
-between these two figures 3,243~ms versus 1,183~ms for one additional tile is
-disproportionate and warrants analysis.
+Worker~1 was assigned tiles 0–-4 (five tiles) and took 3,243~ms to transmit. Worker~2 was assigned tiles 5–-8 (four tiles) and took 1,183~ms. The difference between these two numbers 3,243~ms vs. 1,183~ms for one more tile is disproportionate and deserves analysis
  
-The primary factor is channel contention. Both workers share the same 2.4~GHz
-\gls{esp}-NOW channel, and the \gls{esp}-CAM transmits to Worker~1 first before
-switching to Worker~2. Worker~1 therefore experiences the full serialised cost of
-$5 \times 38 = 190$ fragments with ACK-wait on each, while Worker~2 benefits from
-a cleaner channel after Worker~1's transmission completes. The per-tile transmission
-cost for Worker~1 is approximately 648~ms per tile (3,243~/~5), whereas Worker~2's
-per-tile cost is approximately 296~ms per tile (1,183~/~4). This 2.2$\times$ difference
-reflects the compounding effect of sequential ACK-wait under a loaded channel
-rather than any fundamental difference in channel quality between the two nodes.
+The main reason for this is channel contention. Both workers are on the same 2.4~GHz \gls{esp}-NOW channel and the \gls{esp}-CAM first transmits to Worker~1 then switches to Worker~2. Worker~1 then takes the full serialised cost of $5\times38 = 190$ fragments with ACK-wait on each, but Worker~2 gets a cleaner channel once Worker 1's transmission is over. Worker~1 has a about 648 ms per tile transmission cost (3,243~/~5). Worker~2 has a about 296~ms per tile transmission cost (1,183~/~4). The reason for this 2.2$\times$ difference is the compounding effect of the sequential ACK-wait under a loaded channel, and not an inherent difference in channel quality between the two nodes.
  
-Both figures significantly exceed the 1,000~ms frame budget target. The total time for
-the \gls{esp}-CAM to finish transmitting all nine tiles is approximately 4,426~ms
-(3,243~+~1,183), meaning the transmission stage alone is 4.4$\times$ over budget. This
-identifies tile fragmentation and sequential ACK-based flow control as the most
-impactful area for optimisation after inference latency.
+Both of these figures are well over the 1,000~ms frame budget target. The transmission stage alone is $4.4\times$ over budget, as the ESP-CAM takes about 4,426 ms (3,243~+~1,183) total time to finish sending all nine tiles. This indicates that the most promising area of optimisation after inference latency is tile fragmentation and sequential ACK-based flow control.
  
 \section{Worker Node Inference: Tile Extractor and Attention}
  
