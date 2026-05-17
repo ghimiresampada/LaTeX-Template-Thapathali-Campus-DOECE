@@ -13,5 +13,8 @@ Processing high-resolution data requires spatial decomposition. Li et al. \cite{
 
 Small object detection is specifically addressed by Akyon et al. \cite{akyon2022sahi} through the SAHI (Slicing Aided Hyper Inference) framework. The paper talks about slicing high-resolution images into overlapping patches to help the model see smaller details at a distance. They find that SAHI increases detection accuracy by 20--30\% for small objects. The main limitation is the high computational overhead, as the framework is designed for powerful workstations rather than real-time edge devices.
 
-Finally, the communication between edge nodes is critical for a distributed system. Jeong et al. \cite{jeong2021} evaluates low-latency communication protocols for IoT device clusters. Their research finds that peer-to-peer protocols can achieve latencies as low as 1.115 ms, which is sufficient for real-time synchronization. However, the study lacks an application-specific test for image tile transmission, which involves higher data throughput than simple sensor packets. This project fills these combined gaps by deploying a real-time, distributed tiling system on an ESP32 cluster.
+Last but not least, the communication between edge nodes is essential for a
+distributed system. Jeong et al. \cite{jeong2021} consider low-latency communication protocols
+for clustered IoT devices. Their study shows that peer-to-peer protocols are able to
+reduce latency to 1.115 ms, which is sufficient for real-time synchronization. However, the study lacks an application-specific test for image tile transmission, which involves higher data throughput than simple sensor packets. This project fills these combined gaps by deploying a real-time, distributed tiling system on an ESP32 cluster.
 

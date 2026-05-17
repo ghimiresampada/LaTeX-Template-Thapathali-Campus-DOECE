@@ -8,12 +8,13 @@ While \glspl{cnn} have mastered object detection in controlled environments, mov
 \section{Background}
 
 % Test abbreviations and symbols
-Standard \gls{cnn} architectures like \gls{yolo} or Faster \gls{rcnn} typically use an input resolution of 416×416 or 640×640. In high-resolution domains like surveillance or
-precision agriculture, an image can be 4000×3000 pixels.
+Standard \gls{cnn} architectures like \gls{yolo} or Faster \gls{rcnn} typically use an input resolution of 416×416 or 640×640. High-resolution applications such as surveillance or
+agricultural automation may contain an image of up to 4000×3000 pixels.
 
 \subsection*{The Problem of Vanishing Detail}
-In high-resolution surveillance tasks, the standard practice of resizing input images to
-fit fixed-size \gls{cnn} architectures (e.g., 224×224 or 640×640) introduces a critical bottleneck known as Spatial Information Attrition. When an \gls{uhd}
+High-resolution surveillance applications involve a common problem of downsampling
+the input image to fit fixed-sized \gls{cnn} models. The process is referred to as the Spatial
+Information Attrition problem. When an \gls{uhd}
 frame of 4000-pixel width is downsampled to 400 pixels, the transformation results in
 a 90\% reduction in linear resolution and a 99\% loss of total pixel data.
 
@@ -26,8 +27,9 @@ noise.
 
 \subsection*{Lessons from High-Precision Agriculture}
 Solution to the problem of vanishing detail exists in high precision agricultural models.
-The \gls{sod} problem is a cornerstone of precision agriculture,
-where satellite and \gls{uav} imagery must be analyzed to identify individual crops, pests, or irrigation leaks. In these scenarios, the objects of interest
+The \gls{sod} problem plays a critical role in precision agriculture, where images obtained via
+satellite and UAV must be processed to detect individual plants, pests, or leakage from
+irrigation. In these scenarios, the objects of interest
 often occupy less than 0.1\% of the total image area \cite{agriculture2021}.
 
 To solve this, agricultural models employ a Tiling (or Patch-based) Inference strategy
@@ -40,7 +42,8 @@ of small object detection by over 20-30\% compared to standard resized inference
 But these solutions are often specialized and computationally complex, typically designed for offline processing on powerful workstations rather than real-time edge deployment.
 
 \subsection*{Growing AI and Evolving Edge Computing}
-The rapid proliferation of \gls{ai} has led to a paradigm shift in how data is processed, moving from centralized cloud architectures to the Edge. As of 2025, it is estimated that over 75\% of enterprise-generated data is created and processed outside traditional data centers \cite{forbes2025}. This evolution is driven by the necessity for real-time responsiveness in applications such as autonomous surveillance and industrial monitoring, where the latency of round-trip cloud communication is no longer acceptable \cite{assured2025}.
+The rapid expansion of \gls{ai} has changed the way we process data from central
+cloud systems to the Edge. As of 2025, it is estimated that over 75\% of enterprise-generated data is created and processed outside traditional data centers \cite{forbes2025}. This evolution is driven by the necessity for real-time responsiveness in applications such as autonomous surveillance and industrial monitoring, where the latency of round-trip cloud communication is no longer acceptable \cite{assured2025}.
 
 Modern edge computing involves a decentralized network of edge nodes ranging from \gls{iot} gateways to specialized hardware accelerators like NVIDIA Jetson modules that perform inference locally. However, the increasing complexity of state-of-the-art \glspl{cnn} often exceeds the memory and thermal envelopes of a single edge device. This has birthed the concept of Distributed Edge Inference, where a singular heavy workload is partitioned across multiple heterogeneous nodes \cite{distredge2025}.
 
@@ -51,7 +54,12 @@ The motivation for this research stems from the widening gap between the increas
 \section{Problem Definition}
 The core challenge addressed in this research is the Information-Computation Paradox in high-resolution computer vision. As sensor technology advances, the gap between captured data density and real-time processing capability continues to widen. This problem is formally defined through three primary constraints: 
 
-\textbf{The Scaling Bottleneck and Receptive Field Limitations:} Most state-of-the-art \gls{cnn} architectures, such as ResNet or \gls{yolo} variants, utilize fixed input dimensions (e.g., 416×416 or 640×640). When a 4K \gls{uhd} stream is force-fitted into these dimensions, the resulting bilinear or bicubic interpolation acts as a low-pass filter, effectively erasing the high-frequency components that define small-scale objects. Consequently, the network's effective receptive field becomes larger than the object itself, leading to a failure in feature activation \cite{luo2016understanding}. 
+\textbf{The Scaling Bottleneck and Receptive Field Constraints:}In most modern \gls{cnn} architectures, such as ResNet or \gls{yolo}, input image sizes remain constant (such as 416x416
+or 640x640). Forcing a 4K UHD video feed to conform to such sizes causes an
+interpolation process (either bilinear or bicubic), which serves as a low-pass filter,
+eliminating high-frequency elements representing small objects. The receptive field of
+the neural network thus becomes bigger than the target object, resulting in feature
+activation failure \cite{luo2016understanding}. 
 
 \textbf{Resource Heterogeneity and Memory Constraints:} Edge devices often lack the unified memory architecture required to load large-scale models alongside high-resolution frame buffers. A monolithic inference approach on a single node leads to \gls{oom} errors or thermal throttling. There is currently a lack of standardized frameworks that allow a single inference task to be decomposed spatially across a cluster of heterogeneous low-power devices \cite{hadidi2019distributed}.
 
@@ -71,7 +79,7 @@ By enabling high-resolution sensing on low-cost, low-power hardware, this projec
 \begin{itemize} 
 \item \textbf{High-Precision Industrial Safety:} Monitoring large-scale factory floors where small-scale anomalies (e.g., a hand near a restricted gear) must be detected at high resolution without the cost of high-end industrial \glspl{pcs}. 
 \item \textbf{Privacy-Preserving Smart Homes:} Since tiles are processed locally and only feature maps (not raw images) are aggregated, the system inherently provides a layer of data privacy, making it ideal for residential presence sensing and elderly care monitoring.
-\item \textbf{Energy Management in \gls{hvac} Systems:} In large-scale commercial buildings or smart offices, precise occupancy detection is critical for optimizing \gls{hvac} loads. Traditional \gls{pir} sensors often fail to detect stationary occupants, leading to energy inefficiencies. A distributed, tile-based \gls{cnn} can monitor vast open-plan spaces with high fidelity, detecting occupants even in seated or obscured positions. By feeding real-time presence data into a Building Management System (BMS), the \gls{hvac} system can dynamically adjust airflow and temperature in specific zones, significantly reducing the building's carbon footprint and operational costs.
+\item \textbf{Intelligent Energy Management of \gls{hvac} Systems:} In large commercial buildings or smart offices, precise occupancy detection is essential in order to manage HVAC loads. \gls{pir} sensors are often unable to sense stationary people. However, an accurate occupancy detection using a distributed \gls{cnn} would allow the system to identify the occupants’ presence regardless whether they are standing or seated. Through real-time presence sensing fed into the Building Management System (BMS), HVAC systems can dynamically control airflow and temperature settings in certain areas of a building.
 
 \end{itemize}
 The boundaries of this study are limited to static or slow-moving subjects where the latency of distributed aggregation does not exceed the temporal changes in the scene.
