@@ -1,27 +1,26 @@
 \chapter{SYSTEM ARCHITECTURE AND METHODOLOGY}
 \section{Model Selection and Optimization Pipeline}
-\subsection{Base Model Selection and Training}
-\subsection*{1.MobileNetV2 Architecture}
-The proposed system utilizes a \gls{cnn} based on a modified mobilenetv2 backbone, specifically optimized for binary classification tasks where $f_{\theta} : \mathbb{R}^{N \times 1 \times H \times W} \to \mathbb{R}^{N \times 2}$. The architecture is designed to balance high-level feature extraction with the strict hardware constraints of \glspl{mcu}.
+\subsection{MobileNetV2 Architecture}
+The proposed system leverages a \gls{cnn} based on a mobilenetv2 backbone, specifically optimized for binary classification tasks where $f_{\theta} : \mathbb{R}^{N \times 1 \times H \times W} \to \mathbb{R}^{N \times 2}$. The architecture is designed to balance high-level feature extraction with the strict hardware constraints of \glspl{mcu}.
 
-\subsection*{1.1.Grayscale Adaptation and Transfer Learning}
+\subsection*{Grayscale Adaptation and Transfer Learning}
 To minimize memory consumption and computational latency, the model is adapted to process single-channel grayscale images. Since the pretrained weights were originally optimized for rgb data, the first convolution layer's weights ($W \in \mathbb{R}^{C_{out} \times 3 \times k \times k}$) are averaged across the channel dimension:
 \begin{equation}
     \label{eq:greyscale}
-    Y= 0.299R +0.587G +0.114B
+    Y = 0.299R + 0.587G + 0.114B
 \end{equation}
-This strategy preserves low-level features, such as edge and texture detectors, while allowing the model to function on simplified \gls{sram}-efficient inputs.
+This technique retains low-level feature detection, such as edge detectors and textures, while allowing the model to function on simplified \gls{sram}-efficient inputs.
 
-\subsection*{1.2.Classifier Head and Loss Function}
+\subsection*{Classifier Head and Loss Function}
 The final classification is performed by a narrow bottleneck head ($1280 \to 64 \to 2$) using ReLU activation and dropout ($0.2$ and $0.1$) to prevent overfitting. The resulting logits $\hat{y}$ are evaluated using Cross-Entropy Loss:
 \begin{equation} L = - \sum_{i=1}^{2} y_i \log \left( \frac{e^{\hat{y}_i}}{\sum_{j} e^{\hat{y}_j}} \right) \end{equation}
 
-\subsection*{2. Local Binary Convolution based Architecture}
+\subsection{Local Binary Convolution Based Architecture}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.7\linewidth]{src/images/lbc big image .drawio.png}
-    \caption{Proposed Multi-Tile Attention-Based CNN Architecture}
+    \includegraphics[width=0.7\linewidth]{src/images/lbc big image .drawio (1).png}
+    \caption{Multi-Tile Attention-Based CNN Architecture}
     \label{fig: Local Binary Convolution based Architecture}
 \end{figure}
 
@@ -32,7 +31,7 @@ The final classification is performed by a narrow bottleneck head ($1280 \to 64 
     \label{fig: Local Binary Convolution based Architecture}
 \end{figure}
 
-\subsection*{2.1 LBCLayer Overview}
+\subsection*{LBCLayer Overview}
 The LBCLayer is a hybrid convolutional layer designed to combine fixed binary convolutions (anchors) for efficient sparse structural feature capture with a learnable $1\times1$ convolution for task-specific adaptation. It is particularly suitable for resource-efficient networks and sparse feature representations, inspired by research on \gls{lbc} and sparse binary kernels.
 
 Mathematically, for an input $x \in \mathbb{R}^{N \times C_{in} \times H \times W}$, the output is defined as:
@@ -45,43 +44,46 @@ Where:
     \item $\text{Conv}_{\text{binary}}$ uses fixed ternary weights $\in \{-1, 0, 1\}$.
     \item $\text{Conv1x1}$ is trainable and combines channels efficiently.
 \end{itemize}
-\subsection*{2.2. LBCLayer Components}
-\subsection*{2.2.1. Fixed Anchor Convolution}
+\subsection*{LBCLayer Components}
+\subsection*{1. Fixed Anchor Convolution}
 The purpose of this component is to extract general features without learning, thereby reducing the parameter count. 
 \begin{itemize}
-    \item \textbf{Weight generation}: Weights are sampled from a normal distribution $W \sim \mathcal{N}(0, 1)$ and then thresholded to obtain sparsity $s$:
+    \item \textbf{Weight generation}: The first step is the creation of weights matrix $W \sim \mathcal{N}(0, 1)$ and its sparsifying with parameter $s$:
     \[ \text{binary\_weight}_{i,j,k,l} = \begin{cases} 1 & \text{if } W_{i,j,k,l} > \text{threshold} \\ -1 & \text{if } W_{i,j,k,l} < -\text{threshold} \\ 0 & \text{otherwise} \end{cases} \]
-    \item The sparsity parameter $s$ controls the fraction of zero weights.
-    \item These weights are stored as a buffer (\textit{register\_buffer}), meaning they are not updated during training, ensuring stability and a low memory footprint.
+    \item The sparsity parameter $s$ will define how many zeros will there be in the matrix.
+    \item This matrix of weights is saved as a buffer (\texttt{register\_buffer}), which means it won't be trained afterwards.
 \end{itemize}
-The key idea is to capture general directional/edge patterns efficiently, similar to handcrafted filters like Sobel, but stochastically generated.
-\subsection*{2.2.2 Non-linearity (ReLU)}
-After the fixed binary convolution, ReLU is applied: $x' = \text{ReLU}(x)$. This introduces non-linearity to approximate complex functions while preserving sparse activations and improving computational efficiency since many values remain zero.
-\subsection*{2.2.3 Learnable 1x1 Convolution}
+The main idea is to capture general directional/edge patterns efficiently similar to handcrafted filters like Sobel, but stochastically generated.
+
+\subsection*{2. Non-linearity (ReLU)}
+After the fixed binary convolution, non-linearity is applied by ReLU: $x' = \text{ReLU}(x)$. Non-linearity is introduced to help approximate complex functions, which also maintain sparsity and improving computational efficiency since there will be a lot of zeros. 
+\subsection*{3. Learnable 1x1 Convolution}
 The $1\times1$ kernel combines sparse feature maps into task-relevant channels while keeping computational costs low. 
 \begin{equation}
     x_{\text{final}} = W_{1\times1} * x'
 \end{equation}
 Only this part is trainable, allowing the layer to adapt to specific tasks like human detection.
-\subsection*{2.3 Forward Pass Flow}
+\subsection*{Forward Pass Flow}
 For a single LBCLayer, the flow is as follows:
 \begin{enumerate}
-    \item \textbf{Input tensor}: $x \in \mathbb{R}^{N \times C_{in} \times H \times W}$.
-    \item \textbf{Binary convolution}: $x_1 = \text{Conv}_{\text{binary}}(x)$.
-    \item \textbf{ReLU activation}: $x_2 = \text{ReLU}(x_1)$.
-    \item \textbf{Learnable 1x1 convolution}: $x_{\text{out}} = \text{Conv1x1}(x_2)$.
-    \item \textbf{Output}: $x_{\text{out}} \in \mathbb{R}^{N \times C_{\text{out}} \times H \times W}$.
+    \item The input to the layer is $x \in \mathbb{R}^{N \times C_{in} \times H \times W}$.
+    \item Perform binary convolution using fixed parameters: $x_1 = \text{Conv}_{\text{binary}}(x)$.
+    \item Use ReLU activation function: $x_2 = \text{ReLU}(x_1)$.
+    \item Perform 1x1 convolution using learnable parameters: $x_{\text{out}} = \text{Conv1x1}(x_2)$.
+    \item Output: $x_{\text{out}} \in \mathbb{R}^{N \times C_{\text{out}} \times H \times W}$.
 \end{enumerate}
-\subsection*{2.4 Advantages of LBCLayer}
+\subsection*{Advantages of LBCLayer}
 \begin{itemize}
-    \item \textbf{Efficiency}: Fixed sparse weights reduce multiply-adds, and $1\times1$ learnable convolutions are computationally cheap.
+    \item \textbf{Computational efficiency}: Fixed sparse weights reduce multiply-adds, and $1\times1$ learnable convolutions are computationally cheap.
     \item \textbf{Stability}: Binary anchors are not updated, which avoids noisy gradients; the network only optimizes the final $1\times1$ convolution.
     \item \textbf{Sparsity Control}: The sparsity parameter allows control over network complexity and feature density, encouraging sparse representations that improve generalization.
-    \item \textbf{Compatibility with Tiling}: LBCLayer is ideal for tile-based architectures like the HumanDetector, where each tile can be processed independently and then stitched.
-    \item \textbf{Biologically Inspired}: Sparse, binary-like filters resemble early visual cortex processing and are useful for detecting edges, textures, and local patterns.
+    \item \textbf{Compatibility with Tilings}: LBCLayer is very well suited for tiling based systems such as
+HumanDetector where individual tiles can be processed separately before being assembled.
+    \item \textbf{Biological Inspiration}: Sparse and binary inspired filters mimic biological visual cortex
+processing that is helpful for edge detection and texture recognition.
 \end{itemize}
-\subsection*{2.5 Mathematical Summary}
-For an input $x$, the summary of the operation and gradients is:
+\subsection*{Mathematical Summary}
+Considering the inputs $x$, the summary of the operation and gradients are as follows:
 \begin{align*}
     \text{Anchor weight: } A &= f_{\text{binary}}(W, s) \\
     x_1 &= x * A \\
@@ -89,15 +91,15 @@ For an input $x$, the summary of the operation and gradients is:
     x_{\text{out}} &= x_2 * W_{1\times1} 
 \end{align*}
 \textbf{Gradients}: $\frac{\partial L}{\partial W_{1\times1}} \neq 0$, whereas $\frac{\partial L}{\partial A} = 0$. 
-Here, $*$ denotes convolution, $s$ is the sparsity threshold, and $A$ represents the fixed binary anchor weights.
-\subsection*{2.6 Overview of \gls{hpd}}
+In this case, $*$ denotes a convolution, $s$ denotes the sparsity threshold, and $A$ denotes the fixed binary anchor weights.
+\subsection*{Overview of \gls{hpd}}
 The \gls{hpd} (HumanDetector) is a \textbf{tile-based convolutional network} designed to detect humans in images. Its key characteristics:
 \begin{enumerate}
-    \item \textbf{Input:} Grayscale images $x \in \mathbb{R}^{N \times 1 \times H \times W}$
-    \item \textbf{Tiling:} Split images into $\text{tile\_rows} \times \text{tile\_cols}$ non-overlapping patches.
-    \item \textbf{Feature Extraction per Tile:} Uses LBCLayer to extract sparse yet task-adapted features.
-    \item \textbf{Aggregation / Stitching:} Concatenates all tile features into a single vector.
-    \item \textbf{Classifier Head:} Dense layers to predict \textbf{num\_classes} logits (e.g., Human vs Not Human).
+    \item \textbf{Inputs:} $x \in \mathbb{R}^{N \times 1 \times H \times W}$ grayscale images. 
+    \item \textbf{Tiling:} Divide image into $\text{tile\_rows} \times \text{tile\_cols}$ patches without overlaps.
+    \item \textbf{Per-tile Feature Extraction:}  The use of LBCLayer to perform sparse and task-aware feature extraction from each patch.
+    \item \textbf{Features Aggregation / Stitching:} Features from all the patches aggregated into one feature vector.
+    \item \textbf{Classifier Head:} The output dense layers that provide logit values for \texttt{\detokenize{num_classes}}. (E.g., Human vs. Not Human).
 \end{enumerate}
 
 Mathematically:
@@ -106,7 +108,7 @@ f_{\theta}(x) = \text{Classifier} \left( \text{Concat}_{i,j} (\text{TileExtracto
 \end{equation}
 Where $x_{i,j}$ is the $(i, j)$-th tile.
 
-\subsection*{2.7 Tiling Stage}
+\subsection*{Tiling Stage}
 The tiling stage prepares the input for localized processing.
 \begin{itemize}
     \item \textbf{Input:} $x \in \mathbb{R}^{N \times 1 \times H \times W}$
@@ -128,59 +130,58 @@ The tiling stage prepares the input for localized processing.
     \item Tiles are \textbf{independent}, can be processed in parallel.
 \end{itemize}
 
-\subsection*{2.8 Tile Feature Extractor (\gls{lbc}-based)}
-Each tile passes through the \textit{tile\_extractor} which follows this architecture:
+\subsection*{Tile Feature Extractor (\gls{lbc}-based)}
+Every tile goes through \textit{tile\_extractor} whose structure is described below:
 \begin{itemize}
-    \item \textbf{LBC Layer 1:} $1 \rightarrow 16$ channels, $\text{sparsity}=0.9$.
-    \item \textbf{MaxPool2d:} Kernel size 2, halves spatial dimensions.
-    \item \textbf{LBC Layer 2:} $16 \rightarrow 32$ channels, $\text{sparsity}=0.9$.
-    \item \textbf{AdaptiveAvgPool2d:} Reduces spatial dimension to $1 \times 1$.
+    \item \textbf{LBC Layer 1:} $1  to 16$ channels with $\text{sparsity}=0.9$.
+    \item \textbf{MaxPool2d:} Kernel size 2 by reducing spatial dimensions by half.
+    \item \textbf{LBC Layer 2:} $16  to 32$ channels with $\text{sparsity}=0.9$.
+    \item \textbf{AdaptiveAvgPool2d:} pooling spatial dimensions to 1 × 1.
 \end{itemize}
 
-For a single tile $x_{i,j}$:
+For individual tile $x_{i,j}$:
 \begin{equation}
 x' = \text{LBCLayer}(x_{i,j}) = \text{Conv1x1}(\text{ReLU}(\text{Conv}_{\text{binary}}(x_{i,j})))
 \end{equation}
 
-\subsection*{2.9 Aggregation / Stitching}
-After feature extraction, the tile outputs are combined:
+\subsection*{Aggregation / Stitching}
+After feature extraction, the tile outputs get aggregated together:
 \begin{enumerate}
-    \item \textbf{Flatten each tile output:} $f_{i,j} \in \mathbb{R}^{32}$
+    \item \textbf{Flatten the output for each tile:} $f_{i,j} \in \mathbb{R}^{32}$
     \item \textbf{Concatenate all tiles:} 
-    If $\text{num\_tiles} = \text{tile\_rows} \times \text{tile\_cols}$:
+    If $\text{number of tiles} = \text{tile\_rows} \times \text{tile\_cols}$:
     \begin{equation}
     f_{\text{combined}} = [f_{1,1}, f_{1,2}, \dots, f_{\text{tile\_rows,tile\_cols}}] \in \mathbb{R}^{32 \cdot \text{num\_tiles}}
     \end{equation}
 \end{enumerate}
-This acts like \textbf{graph aggregation}, treating each tile as a node.
-
-\subsection*{2.10 Classifier Head}
-The classifier takes the concatenated vector and applies a MLP:
+This process can be considered analogous to graph aggregation, treating every tile as a graph node
+\subsection*{Classifier Head}
+The classifier performs an MLP on the concatenated vector:
 \begin{itemize}
-    \item \textbf{Input:} $f_{\text{combined}} \in \mathbb{R}^{32 \cdot \text{num\_tiles}}$
-    \item \textbf{Layers:} $\text{Linear}(32 \cdot \text{num\_tiles} \rightarrow 64) \rightarrow \text{ReLU} \rightarrow \text{Linear}(64 \rightarrow \text{num\_classes})$
-    \item \textbf{Output:} Logits for classification:
-    \begin{equation}
+    \item \textbf{Input:} $f_{\text{combined}} \in \mathbb{R}^{32 \cdot \text{number of tiles}}$
+    \item \textbf{Layers:} $\text{Linear}(32 \cdot \text{number of tiles} \rightarrow 64) \rightarrow \text{ReLU} \rightarrow \text{Linear}(64 \rightarrow \text{num\_classes})$
+    \item \textbf{Output Classificaation Logits:}
+     \begin{equation}
     \hat{y} \in \mathbb{R}^{N \times \text{num\_classes}}
     \end{equation}
 \end{itemize}
-Uses \textbf{CrossEntropyLoss} during training:
+Uses \textbf{CrossEntropyLoss} when training:
 \begin{equation}
 L = -\sum_{c=1}^{\text{num\_classes}} y_c \log \text{softmax}(\hat{y}_c)
 \end{equation}
 
-\subsection*{2.11 Computational Efficiency}
+\subsection*{Computational Efficiency}
 The LBCLayer reduces \glspl{flops} significantly:
 \begin{equation}
 \text{FLOPs} \approx C_{in} \cdot C_{out} \cdot k^2 \cdot H \cdot W
 \end{equation}
 \begin{itemize}
-    \item \textbf{Binary conv:} Multiplications become simple additions/subtractions.
+    \item \textbf{Binary conv:} Multiplications are basically simple additions/subtractions.
     \item \textbf{1x1 conv:} Provides lightweight mixing of channels.
     \item \textbf{Tile-based processing:} Can be parallelized across multiple nodes.
 \end{itemize}
 
-\subsection*{2.12 Mathematical Summary of Forward Pass}
+\subsection*{Mathematical Summary of Forward Pass}
 \begin{enumerate}
     \item \textbf{Tile splitting:}
     \begin{equation}
@@ -190,7 +191,7 @@ The LBCLayer reduces \glspl{flops} significantly:
     \begin{equation}
     f_{i,j} = \text{AdaptiveAvgPool2d}(\text{LBCLayer2}(\text{MaxPool2d}(\text{LBCLayer1}(x_{i,j}))))
     \end{equation}
-    \item \textbf{Flatten + concatenate:}
+    \item \textbf{Flatten and concatenate:}
     \begin{equation}
     f_{\text{combined}} = \text{Concat}([f_{i,j}])
     \end{equation}
@@ -204,17 +205,17 @@ The LBCLayer reduces \glspl{flops} significantly:
     \end{equation}
 \end{enumerate}
 
-\subsection*{2.13 Advantages of \gls{hpd} Architecture}
+\subsection*{Advantages of \gls{hpd} Architecture}
 \begin{enumerate}
     \item \textbf{Sparse and efficient:} \gls{lbc} reduces compute and memory footprint.
     \item \textbf{Tile-based learning:} Learns local patterns for small human parts.
     \item \textbf{Flexible:} Can adapt tile size and sparsity based on resources.
-    \item \textbf{Parallelizable:} Each tile is processed independently.
-    \item \textbf{Low-data regime:} Predefined anchors reduce training requirements.
+    \item \textbf{Parallelization:} Processed independently per tile.
+    \item \textbf{Low-data scenario:} Set anchors minimize training needs.
 \end{enumerate}
-\newpage
-\section{Hardware Specifications and system topology}
-The project utilizes a decentralized, multi-node architecture deployed on ESP32 and ESP32-S3 \glspl{mcu}. To optimize throughput and manage resource constraints, the system is organized into a three-tier hierarchical structure.
+\section{Hardware Requirements and system configuration}
+The design employs a distributed architecture that is multi-node based on the ESP32
+and ESP32-S3 \gls{mcu}. In order to maximize efficiency and take advantage of limited resources, the system is structured hierarchically in three levels.
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\textwidth]{src/images/Downsampling.drawio.png}
@@ -224,7 +225,7 @@ The project utilizes a decentralized, multi-node architecture deployed on ESP32 
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.75\textwidth]{src/images/Untitled Diagram.drawio (1).png}
+    \includegraphics[width=0.75\textwidth]{src/images/Untitled Diagram.drawio(1).png}
     \caption{Detailed Data Flow Diagram of the Tiling and Inference Pipeline.}
     \label{fig:detailed_workflow}
 \end{figure}
@@ -240,12 +241,14 @@ Processing three-channel RGB data significantly inflates the memory buffer requi
     P(y = 1 \mid x) = \frac{e^{z_{\text{person}}}}{e^{z_{\text{bg}}} + e^{z_{\text{person}}}}
 \end{equation}
 % \cite{goodfellow2016deep}
-Where $z_{\text{person}}$ and $z_{\text{bg}}$ are the logits for the "person" and "background" classes, respectively. This conversion reduces the data size by two-thirds, significantly easing the memory and computational load on the subsequent processing nodes.
-
-This reduces the input data size by $66.6\%$, freeing up critical heap memory (\gls{sram}) for the tiling and distribution buffers.
+Where $z_{\text{person}}$ and $z_{\text{bg}}$ represents the logits corresponding to “person” and “background” class,
+respectively. Data compression reduces the amount of data sent by two-thirds,
+resulting in a massive reduction of memory space required in the processing nodes.
+Such data compression technique reduces the input data volume by 66.6\%, hence
+leaving more room for heap memory allocation for tiling and distribution buffers.
 \begin{equation}
     \label{eq:greyscale}
-    Y= 0.299R +0.587G +0.114B
+    Y = 0.299R + 0.587G + 0.114B
 \end{equation}
 % \begin{figure}[htbp]
 %     \centering
@@ -253,7 +256,7 @@ This reduces the input data size by $66.6\%$, freeing up critical heap memory (\
 %     \caption{RGB to Grayscale}\cite{skimage_grayscale}
 %     \label{fig: RGB to Grayscale}
 % \end{figure}
-\subsubsection{\textbf{Spatial Partitioning Distribution}}
+\subsubsection{\textbf{Partitioning Distribution}}
 The process begins with the Tiling module, which extracts $n$ overlapping tiles from the source image. This step is critical for maintaining high-resolution features on resource-constrained hardware. By using a 25\% overlap between adjacent tiles, the system ensures that human subjects positioned at tile boundaries are not bisected, preserving spatial continuity for the feature extractor.
 
 \subsection{Communication Protocol Implementation}
@@ -263,19 +266,19 @@ The \gls{esp} protocol will be the communication backbone\cite{espnow_doc}, sele
 \subsection{Feature Extraction Layer}
 \begin{itemize}
     \item Parallel Processing: Each node receives a specific low-resolution tile from the Input Layer.
-    \item Local Inference: 
-    \item Node ID: A 1-byte identifier used to map the tile’s location within the larger $224 \times 224$ frames.
-    \item Quantized Score ($Q$): The posterior probability is scaled to a single-byte integer ($Q = P \times 255$). This significantly reduces communication overhead compared to sending bulky decimal numbers\cite{espressif2024espdl}.
-    
+    \item Local Inference: Each node runs the \gls{hpd} model on its assigned tile, extracting features and computing an attention weight that indicates the likelihood of human presence in that tile.
+    \item Output Generation: Each node outputs a feature map and an attention weight, which are then transmitted to the Output Layer for aggregation and final decision-making.
 \end{itemize}
 
 \subsection{Output Layer (Aggregation \& Logic)}
+
 This layer is the final stage of the architecture and it is the core decision making layer. The feature map and the attention weight of each tile are taken from the feature extraction nodes, and the following operations are performed:
  \begin{itemize}
      \item \textbf{Attention score calculation:} The attention score for each tile is computed using the SoftMax function, which normalizes the quantized scores into a probability distribution.This allows the system to weigh the importance of each tile’s features when making the final decision.
      \item \textbf{Weighted faeture aggregation:} Using the attention scores, we do a weighted sum of the feature maps from all tiles. This effectively combines the information, while giving more weight to tiles that are more likely to contain human features.
      \item \textbf{Final Classification:}The aggregated feature map is then passed to a classifier layer (e.g., fully connected layer) to compute a confidence score for the presence of a human in the whole scene. This score is then used to make a binary decision (human detected or not) that can be displayed on an output device such as an LCD screen.
  \end{itemize}
+
 \newpage
 \section{Hardware Used}
 The core hardware of this project is based on the \glspl{mcu} of the ESP32-family. It is chosen because they are low cost, low power, and can run edge-level machine learning tasks. This system uses a distributed architecture. Here, image capturing, processing and decision-making are separated across different ESP32 devices to overcome memory and processing limitations of a single microcontroller. This hardware design allows the system to perform real-time \gls{hpd} without relying on cloud servers, making it faster, more private, and more energy efficient.
@@ -367,6 +370,6 @@ We must measure the benefits of distributing the inference burden among several 
 
 \textbf{End-to-End Latency (total):} The duration between the Master node's picture acquisition and the ultimate detection outcome.
 
-\textbf{Memory Footprint: }
+\textbf{Memory Footprint: } Maximum \gls{sram} used by any single node during inference.
 
 \textbf{Communication Delay:} The proportion of the entire cycle used for local Deep learning computation as opposed to \gls{esp} tile transmission.

@@ -237,7 +237,7 @@ Total pipeline (critical path)
 \end{tabular}
 \end{table}
  
-\section{ESP-CAM: Frame Capture and Tiling}
+\subsection{ESP-CAM: Frame Capture and Tiling}
  
 The \gls{esp}-CAM node captures a 224$\times$224 gray-scale frame and splits it into nine overlapping 96$\times$96 tiles with a step size of 72 pixels (25\% overlap) along both spatial axes. The whole capture-to-tile pipeline takes 4~ms, rendering this stage completely insignificant compared to all downstream processing. This confirms the fact that the tiling strategy itself incurs no meaningful overhead, and that the \gls{esp}-CAM is able to achieve the target 1~\gls{fps} frame rate from a capture perspective alone.
  
@@ -246,7 +246,7 @@ the nine sequential tile extraction operations. At this rate, the \gls{esp}-CAM 
 theoretically support up to 250~\gls{fps} in isolation, meaning the capture stage will
 never be the bottleneck regardless of how the downstream pipeline is optimised.
  
-\section{Tile Transmission: ESP-CAM to Worker Nodes}
+\subsection{Tile Transmission: ESP-CAM to Worker Nodes}
  
 The first latency stage in the pipeline is the transmission of tiles from the \gls{esp}-CAM to the two worker nodes via \gls{esp}-NOW. Each tile is 96$\times$96, and is 9,216 bytes in size. \gls{esp}-NOW has a maximum frame size of 250 bytes, so each tile is fragmented into 38 sequential packets of 247 data bytes each, with a synchronous ACK-wait between fragments for flow control.
  
@@ -256,7 +256,7 @@ The main reason for this is channel contention. Both workers are on the same 2.4
  
 Both of these figures are well over the 1,000~ms frame budget target. The transmission stage alone is $4.4\times$ over budget, as the ESP-CAM takes about 4,426 ms (3,243~+~1,183) total time to finish sending all nine tiles. This indicates that the most promising area of optimisation after inference latency is tile fragmentation and sequential ACK-based flow control.
  
-\section{Worker Node Inference: Tile Extractor and Attention}
+\subsection{Worker Node Inference: Tile Extractor and Attention}
  
 Each ESP32-S3 worker node runs two TFLite Micro models sequentially per tile: the tile
 extractor (60~\gls{kb} INT8, producing a 64-dimensional feature vector) and the
@@ -303,7 +303,7 @@ Float32 tensors remaining     & 0                           & 0                 
 \end{tabular}
 \end{table}
  
-\section{Feature Transmission: Worker Nodes to Aggregator}
+\subsection{Feature Transmission: Worker Nodes to Aggregator}
  
 Each worker node transmits a 69-byte \textit{WorkerPayload} struct to the aggregator
 upon completing inference for each tile. The payload contains the tile ID (1~byte), raw
@@ -331,7 +331,7 @@ and Worker~2 transmit in parallel once their respective inference completes, red
 the effective wall-clock transmission time to approximately
 $\max(5,4) \times 472$~ms $= 2,360$~ms under ideal parallel operation.
  
-\section{Aggregator Node: Softmax, Weighted Sum, and Classification}
+\subsection{Aggregator Node: Softmax, Weighted Sum, and Classification}
  
 The ESP32 aggregator node receives nine \textit{WorkerPayload} packets, performs softmax
 normalisation across the nine raw attention logits, computes the attention-weighted sum
@@ -369,7 +369,7 @@ and weighted sum operations involve only 9 scalar values and $9 \times 64 = 576$
 multiply-accumulate operations, well within the ESP32's capability at microsecond
 timescales.
  
-\section{End-to-End Pipeline Analysis}
+\subsection{End-to-End Pipeline Analysis}
  
 \Cref{tab:critical_path} presents the complete pipeline latency on the critical path
 (Worker~1 as bottleneck) alongside the 1,000~ms frame budget target.
@@ -403,7 +403,7 @@ transmission from workers to the aggregator contributes 12.5\%. The capture and
 aggregation stages together account for less than 0.03\% of total latency and are
 effectively free in comparison.
  
-\section{Quantisation and Model Size Analysis}
+\subsection{Quantisation and Model Size Analysis}
  
 \Cref{tab:quantisation} summarises the quantisation outcomes for all three deployed
 models.
@@ -445,7 +445,7 @@ allocates scratch buffers for intermediate activations across the three
 up to 96×96, requiring substantial intermediate storage that cannot be released until
 the layer completes.
  
-\section{Discussion: Performance Gap and Path to Real-Time Operation}
+\subsection{Discussion: Performance Gap and Path to Real-Time Operation}
  
 The results reveal a clear and quantifiable performance gap between the current prototype
 and the real-time target. The system demonstrates architectural correctness all
