@@ -447,25 +447,8 @@ the layer completes.
  
 \subsection{Discussion: Performance Gap and Path to Real-Time Operation}
  
-The results reveal a clear and quantifiable performance gap between the current prototype
-and the real-time target. The system demonstrates architectural correctness all
-pipeline stages function as designed, data flows correctly between nodes, INT8 inference
-produces valid outputs, and the aggregator correctly fuses nine partial representations
-into a binary decision but does not yet meet the latency requirements for 1~\gls{fps}
-real-time operation.
- 
-The path to closing this gap is well-defined by the results. Reducing per-tile inference
-time from 2,657~ms to under 150~ms would require either fitting the tile extractor arena
-entirely within internal \gls{sram} (necessitating a model with arena requirement below
-$\sim$180~\gls{kb}, achievable through channel-count reduction or architectural
-simplification) or adopting a hardware platform with faster external memory such as the
-ESP32-P4 with its on-chip cache-backed PSRAM. Simultaneously, replacing the
-sequential ACK-based fragmentation scheme with a broadcast-based transmission or
-increasing the \gls{esp}-NOW payload limit through custom fragmentation would address
-the 3,243~ms Worker~1 transmission bottleneck.
- 
-The aggregator node, with its 0.342~ms processing time and 4~\gls{kb} model footprint,
-confirms that the fusion and classification stage of the architecture imposes essentially
-zero overhead and would remain viable even as the upstream pipeline is accelerated by
-one to two orders of magnitude.
+The results show a clear and quantifiable performance gap between the current prototype and the real time target. The system is architecturally correct: all pipeline stages work as intended, data flows correctly between nodes, \gls{int8} inference produces valid outputs, and the aggregator correctly fuses nine partial representations into a binary decision. However, the system currently does not meet the latency requirements to operate in real-time at 1 \gls{fps}.
+The results clearly point the way to close this gap. To reduce per tile inference time from 2657 ms to <150~ms, either the tile extractor arena needs to fit entirely within internal \gls{sram} (a model with arena requirement of <∼180 KB can be achieved by reducing the channel count or by simplifying the architecture), or a hardware platform with faster external memory such as the \gls{esp}32-P4 (with its on-chip cache-backed PSRAM) needs to be used. Meanwhile, the 3,243~ms Worker~1 transmission bottleneck could be addressed by swapping out the sequential ACK based fragmentation scheme for a broadcast-based transmission or by increasing the \gls{esp}-NOW payload limit via custom fragmentation.
+The aggregator node, with its 0.342~ms processing time and 4~KB model footprint, confirms that the fusion and classification stage of the architecture imposes essentially zero overhead and would remain viable even as the upstream pipeline is accelerated by one to two orders of magnitude.
+
  

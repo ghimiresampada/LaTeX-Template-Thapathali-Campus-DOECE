@@ -1,69 +1,58 @@
 \chapter{Introduction}
-While \glspl{cnn} have mastered object detection in controlled environments, moving to real-world, high-resolution processing is still hampered by significant hardware constraints. In many scenarios, simply shrinking a high-definition image to fit into a small processor causes the loss of critical spatial details. By borrowing the tiling methodologies used in high-precision agriculture where massive fields are analyzed piece by piece and combining them with distributed edge computing, this project proposes a scalable solution for real-time \gls{hpd}. We chose \gls{hpd} as our primary focus because detecting people in large, open spaces requires the high-level granularity that traditional downsampling destroys. By splitting a high-resolution frame into smaller tiles and distributing the workload across a network of resource-constrained \glspl{mcu}, we maintain the precision needed to identify human subjects without the need for expensive, centralized hardware. This approach not only ensures accuracy in expansive environments but also keeps data processing local, addressing the latency and privacy concerns essential to modern monitoring systems.
-% While \glspl{cnn} have mastered object detection in controlled environments, the transition
-% to real-world high-resolution processing is hampered by hardware constraints. By borrowing the tiling methodologies used in high-precision agriculture and combining them
-% with distributed edge computing, this project proposes a scalable solution for real-time
-% \gls{hpd}.
+Convolutional Neural Networks (CNNs) perform well at detecting objects in controlled environments. But moving to the real world, high-resolution processing is still a challenge when processing on edge system. Most small processors can’t store and process large images directly. A common way to handle this is to shrink the image before processing. This causes the loss of granular details that matter for accurate detection.‎ 
+This project draws inspiration from precision agriculture.There, large areas are analysed by breaking them into smaller sections and processing each one separately. We apply the same idea here, combined with distributed edge computing system, to build a practical solution for real-time Human Presence Detection (HPD).‎ 
+We chose HPD as our focus for a specific reason. Detecting people in large, open spaces requires fine visual details. Traditional downsampling destroys exactly that  granularity.
+Our approach splits a high-resolution frame into smaller tiles  then each tile is  processed by a  microcontroller spreading the workload across multiple devices instead of relying on a single powerful machine. As a result, we preserve the image quality needed to detect people reliably.
+This method also has practical benefits beyond accuracy as  all processing happens locally on the device. It reduces latency and keeps sensitive data from being sent to a central server, which is important for privacy.
+
 
 \section{Background}
 
 % Test abbreviations and symbols
-Standard \gls{cnn} architectures like \gls{yolo} or Faster \gls{rcnn} typically use an input resolution of 416×416 or 640×640. High-resolution applications such as surveillance or
-agricultural automation may contain an image of up to 4000×3000 pixels.
+Common object detection models like You Only Look Once (YOLO) and Faster architecture like R-CNN are designed to work with small input images with sizes like  416×416 or 640×640 pixels. However, cameras used in surveillance or agricultural automation can capture images as large as 4000×3000 pixels which is nearly ten times larger than what these models expect. 
+
 
 \subsection*{The Problem of Vanishing Detail}
-High-resolution surveillance applications involve a common problem of downsampling
-the input image to fit fixed-sized \gls{cnn} models. The process is referred to as the Spatial
-Information Attrition problem. When an \gls{uhd}
-frame of 4000-pixel width is downsampled to 400 pixels, the transformation results in
-a 90\% reduction in linear resolution and a 99\% loss of total pixel data.
+Surveillance systems often capture very large images but most CNN models only accept small, fixed size inputs. To bridge this gap, the, image is shrunk down before being fed into the model which is known as the Spatial Information Attrition problem which causes serious data loss. 
+Consider a frame that is 4000 pixels wide being reduced to 400 pixels. That’s a 90\% reduction in width and 99\% of the total pixel data is thrown away.
 
-This geometric reduction disproportionately affects small-scale objects. For instance, a
-human subject occupying a 40×80 pixel area in the original frame is reduced to a mere
-4×8 pixel fragment. Such a representation falls significantly below the minimum \gls{erf} required for a \gls{cnn} to extract discriminative features like
-limb orientation or torso contours \cite{luo2016understanding}. At this scale, the high-frequency spatial components that define humanness are discarded, leaving the network to attempt classification
-based on aliased, low-frequency blobs that are indistinguishable from environmental
-noise.
+Small objects suffer the most from this process. Take a person standing at a distance. They might occupy a 40×80 pixel region in the original image but after downsampling, that same person is reduced to just 4×8 pixels which is roughly the size of a thumbnail on a postage stamp
+
+At that size, a \gls{cnn} cannot do its job properly. Every CNN has a minimum region it needs to see in order to pick up useful features which is called the Effective Receptive Field (ERF) \cite{luo2016understanding}. A 4×8 pixel blob falls well below that minimum which does not have enough details to identify limbs, a torso, or any other feature that distinguishes a person from background noise. The model ends up trying to classify a blurry smudge, which can look suprisingly identical to a shadow or a bush.
 
 \subsection*{Lessons from High-Precision Agriculture}
-Solution to the problem of vanishing detail exists in high precision agricultural models.
-The \gls{sod} problem plays a critical role in precision agriculture, where images obtained via
-satellite and UAV must be processed to detect individual plants, pests, or leakage from
-irrigation. In these scenarios, the objects of interest
-often occupy less than 0.1\% of the total image area \cite{agriculture2021}.
+In agriculture, satellites and drones capture very large sized  images of fields. Researchers then analyse these images to spot individual plants, pests, or broken irrigation pipes. These objects are tiny and often take up less than 0.1\% of the total image area \cite{agriculture2021}. This is known as the Small Object Detection \gls{sod} problem.
 
-To solve this, agricultural models employ a Tiling (or Patch-based) Inference strategy
-\cite{agriculture2021},\cite{sahi2022}. Instead of global resizing, the image is partitioned into a grid of overlapping
-tiles. This preserves the \gls{gsd}; the physical distance on
-the ground represented by a single pixel ensuring that the spatial features required for
-detection remain intact. Research in this field, such as the \gls{sahi} framework \cite{sahi2022}, demonstrates that tiling can increase the average precision
-of small object detection by over 20-30\% compared to standard resized inference.
+To handle this, agricultural models use a technique called Tiling, also known as Patch based Inference \cite{agriculture2021}, \cite{sahi2022}. Instead of shrinking the whole image, the image is cut into a grid of smaller sections called tiles then Each tile is processed separately which preserves what is called the Ground Sampling Distance \gls{gsd}. In simple terms, GSD refers to how much real world area a single pixel represents. By keeping the tiles at full resolution, no spatiial detail is lost. One well-known implementation is the Slicing Aided Hyper Inference \gls{sahi} framewor\cite{sahi2022}. Studies using SAHI show that tiling can improve small object detection accuracy by 20 to 30% compared to simply resizing the full image [3].
 
-But these solutions are often specialized and computationally complex, typically designed for offline processing on powerful workstations rather than real-time edge deployment.
+However, these agricultural solutions have a limitation which is; they are built for powerful workstations and are typically run offline and were not designed for real time processing on small, low powered devices. 
+
+
 
 \subsection*{Growing AI and Evolving Edge Computing}
-The rapid expansion of \gls{ai} has changed the way we process data from central
-cloud systems to the Edge. As of 2025, it is estimated that over 75\% of enterprise-generated data is created and processed outside traditional data centers \cite{forbes2025}. This evolution is driven by the necessity for real-time responsiveness in applications such as autonomous surveillance and industrial monitoring, where the latency of round-trip cloud communication is no longer acceptable \cite{assured2025}.
+Artificial Intelligence is no longer confined to large data centres in the cloud rather is increasingly happening closer to where data is being collected. This shift is known as edge computing. By 2025, it is estimated that over 75\% of enterprise data is created and processed outside traditional data centres\cite{forbes2025}.
+This change is being driven by the need for speed. Applications like autonomous surveillance and industrial monitoring cannot afford the delay of sending data to a remote server and waiting for a response which can be solved by processing locally\cite{assured2025}.
 
-Modern edge computing involves a decentralized network of edge nodes ranging from \gls{iot} gateways to specialized hardware accelerators like NVIDIA Jetson modules that perform inference locally. However, the increasing complexity of state-of-the-art \glspl{cnn} often exceeds the memory and thermal envelopes of a single edge device. This has birthed the concept of Distributed Edge Inference, where a singular heavy workload is partitioned across multiple heterogeneous nodes \cite{distredge2025}.
+Edge computing works through a network of small, distributed devices that range from simple IoT gateways to more capable hardware like NVIDIA Jetson modules where each device performs some or all of the AI processing locally, without relying on the cloud.
 
+But even these edge devices have limits. Modern AI models are growing more complex and single edge device often does not have enough memory or processing power to run them. This has led to a new idea called Distributed Edge Inference \cite{distredge2025}  where Insteead of running the entire model on one device, the workload is split across several devices. Each device handles a portion of the task, and the results are combined.
 
 \section{Motivation}
-The motivation for this research stems from the widening gap between the increasing resolution of modern image sensors and the static input constraints of high-performance deep learning models. While 4K and 8K cameras are becoming standard in security and industrial monitoring, the hardware tax required to process these images at native resolution is prohibitive for most edge-deployed systems. Current solutions generally follow one of two suboptimal paths: aggressive downsampling, which sacrifices the high frequency spatial data necessary to detect small or distant subjects, or expensive hardware scaling, which relies on power hungry \glspl{gpu} that are unsuitable for remote or battery operated environments. There is a critical need for a middle ground—an architecture that preserves the raw detail of the sensor while distributing the computational burden across a modular network.
+Modern cameras are getting better and better as 4K and 8K sensors are now common in security and industrial monitoring. But AI models have not kept up. Most high performance models still expect small, fixed size inputs. This gap is the core motivation for this research.
+Currently, there are two common ways to deal with this mismatch but neither works well.
+The first option is to shrink the image size. This is rapid and cheap, but it removes fine details. Small or distant subjects become impossible to detect reliably.
+The second option is to use more powerful hardware. \gsls{gpu} can handle large images, but they consume a lot of power. This makes them unsuitable for remote locations or battery powered devices.
+So some middle ground is needed. his research aims to build  an architecture that keeps the full detail of the original image, while distributing the processing load across multiple small, affordable devices.
+
 
 \section{Problem Definition}
-The core challenge addressed in this research is the Information-Computation Paradox in high-resolution computer vision. As sensor technology advances, the gap between captured data density and real-time processing capability continues to widen. This problem is formally defined through three primary constraints: 
+This research addresses a core problem in high resolution computer vision. As cameras get better and better, the gap between how much data they capture and speed of processing keeps growing. This is sometimes called the Information Computation Paradox. It breaks down into three specific problems.
+\textbf{The Scaling Bottleneck and Receptive Field Constraints:}Most \gls{cnn} models like ResNet or \gls{yolo} expect a fixed input size, typically 416×416 or 640×640 pixels \cite{luo2016understanding} . When a 4K video frame is forced into that size, the image must be heavily resized. This resizing acts like a filter by smoothing out fine details and removes the sharp edges that define small objects. The result is that the region a \gls{cnn} focuses on becomes larger than the object it is trying to find. The network fails to detect it \cite{luo2016understanding}.
 
-\textbf{The Scaling Bottleneck and Receptive Field Constraints:}In most modern \gls{cnn} architectures, such as ResNet or \gls{yolo}, input image sizes remain constant (such as 416x416
-or 640x640). Forcing a 4K UHD video feed to conform to such sizes causes an
-interpolation process (either bilinear or bicubic), which serves as a low-pass filter,
-eliminating high-frequency elements representing small objects. The receptive field of
-the neural network thus becomes bigger than the target object, resulting in feature
-activation failure \cite{luo2016understanding}. 
 
-\textbf{Resource Heterogeneity and Memory Constraints:} Edge devices often lack the unified memory architecture required to load large-scale models alongside high-resolution frame buffers. A monolithic inference approach on a single node leads to \gls{oom} errors or thermal throttling. There is currently a lack of standardized frameworks that allow a single inference task to be decomposed spatially across a cluster of heterogeneous low-power devices \cite{hadidi2019distributed}.
+\textbf{Hardware and Memory Constraints:}Edge devices are small and have limited memory so running a large AI model directly on one while also holding a high  resolution image in memory is often not possible. The device either crashes with an Out of Memory (OOM) error or slows down due to overheating. There are currently no widely adopted frameworks that allow a single inference task to be split spatially across a group of low power devices \cite{hadidi2019distributed}.
 
-\textbf{The Aggregation Challenge:} Splitting an image into tiles introduces boundary artifacts. If a human subject is positioned across the intersection of four tiles, no single node possesses the complete spatial context to identify the subject. The problem, therefore, is not only how to distribute the tiles but how to design an Aggregator Node capable of fusing partial feature maps (logits or latent vectors) into a coherent global detection without re-introducing the original computational bottleneck \cite{sahi2022_overlap}. 
+\textbf{The Aggregation Challenge:} Splitting an image into tiles creates a new problem at the boundaries. A person standing at the edge of a tile may appear partially in two or four neighbouring tiles. No single device sees the full picture. The challenge is therefore not just how to split the image, but how to design an Aggregator that can combine the partial results from each tile into one reliable detection, without requiring a powerful central machine to do it \cite{sahi2022_overlap}. 
 
 \newpage
 \section{Objectives}
@@ -73,13 +62,13 @@ activation failure \cite{luo2016understanding}.
 \end{itemize}
 
 \section{Scope and Applications}
-The scope of this project is centered on the intersection of distributed systems and embedded computer vision. While the methodology is developed using \gls{hpd} as the primary use case, the underlying architecture for spatial partitioning and feature aggregation is designed to be model-agnostic.
+This project sits at the middle ground of distributed computing and embedded computer vision. Human Presence Detection is used as the main test case, but the architecture itself is not tied to that particular task only. The same approach to splitting images and combining results can be applied to other similar detection problems.
+By making high resolution sensing possible on affordable, low-power hardware, this project has relevance across more than one fields.
 
-By enabling high-resolution sensing on low-cost, low-power hardware, this project opens new avenues for several critical domains:
 \begin{itemize} 
-\item \textbf{High-Precision Industrial Safety:} Monitoring large-scale factory floors where small-scale anomalies (e.g., a hand near a restricted gear) must be detected at high resolution without the cost of high-end industrial \glspl{pcs}. 
-\item \textbf{Privacy-Preserving Smart Homes:} Since tiles are processed locally and only feature maps (not raw images) are aggregated, the system inherently provides a layer of data privacy, making it ideal for residential presence sensing and elderly care monitoring.
-\item \textbf{Intelligent Energy Management of \gls{hvac} Systems:} In large commercial buildings or smart offices, precise occupancy detection is essential in order to manage HVAC loads. \gls{pir} sensors are often unable to sense stationary people. However, an accurate occupancy detection using a distributed \gls{cnn} would allow the system to identify the occupants’ presence regardless whether they are standing or seated. Through real-time presence sensing fed into the Building Management System (BMS), HVAC systems can dynamically control airflow and temperature settings in certain areas of a building.
+\item \textbf{High-Precision Industrial Safety:} Large factory floors need constant monitoring. Small but dangerous events, such as a hand getting too close to moving machinery, must be caught early. This system can detect such events at high resolution without the need for expensive industrial computers.
+\item \textbf{Privacy-Preserving Smart Homes:}Because each tile is processed locally and only the final results are shared, raw images never leave the device. This makes the system a good fit for home presence sensing and elderly care, where privacy is a major priority.
+\item \textbf{Intelligent Energy Management of \gls{hvac} Systems:} Large offices and commercial buildings need accurate occupancy data to manage their Heating, Ventilation, and Air Conditioning \gls{hvac} systems efficiently. Traditional Passive Infrared \gls{pir} sensors struggle to detect people who are sitting still to solve this a distributed CNN based system can detect occupants regardless of whether they are moving or stationary. This information can be fed directly into a Building Management System (BMS), allowing the HVAC system to adjust airflow and temperature room by room in real time.
 
 \end{itemize}
-The boundaries of this study are limited to static or slow-moving subjects where the latency of distributed aggregation does not exceed the temporal changes in the scene.
+This study focuses on static or slow-moving subjects. The system works best in scenes where changes happen slowly enough that the processing delay does not cause missed detections.
