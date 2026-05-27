@@ -77,7 +77,7 @@ Weighted average     & 0.8682 & 0.8618 & 0.8627 & 2432 \\
 \end{table}
 
 \section{LBCNN Architecture Performance}
-The utilization of \gls{lbc} architecture for the task of human presence detection demonstrated the feasibility of a lightweight model with reliable accuracy on resource-constrained \glspl{mcu}.
+The utilization of \gls{lbc} architecture for the task of human presence detection demonstrated the feasibility of a lightweight model with reliable accuracy on resource constrained \glspl{mcu}.
 
 \begin{figure}[H]
     \centering
@@ -102,7 +102,7 @@ shows consistent reduction in training loss over 45 epochs, decreasing steadily 
 0.70 to approximately 0.51, while the validation loss remains highly volatile throughout
 training with sharp spikes reaching as high as 1.10, a behaviour attributed to the
 limited dataset size of 737 training samples where individual batches exert
-disproportionate influence on the validation metric. The normalised confusion matrix indicates broadly balanced per-class recall of 0.72 for Class 0 and 0.71 for Class 1, indicating that the weighted sampling strategy was successful in avoiding majority-class collapse. The 28\% false alarm rate and 29\% missed detection rate suggest that the binary convolutional features lack sufficient discriminative precision to separate the two classes cleanly, a direct consequence of the constrained model capacity and limited training data.
+disproportionate influence on the validation metric. The normalised confusion matrix indicates broadly balanced per class recall of 0.72 for Class 0 and 0.71 for Class 1, indicating that the weighted sampling strategy was successful in avoiding majority class collapse. The 28\% false alarm rate and 29\% missed detection rate suggest that the binary convolutional features lack sufficient discriminative precision to separate the two classes cleanly. It is a direct consequence of the constrained model capacity and limited training data.
 \begin{table}[H]
 \renewcommand{\arraystretch}{1.25}
 \caption{Training Run Summary}
@@ -265,9 +265,9 @@ attention head (6~\gls{kb} INT8, producing a scalar logit). Both models execute 
 \textit{heap\_caps\_aligned\_alloc} with 16-byte alignment.
  
 Worker~1 processed five tiles sequentially, completing in 13,284~ms total, yielding an
-average per-tile inference time of 2,657~ms. Worker~2 processed four tiles sequentially,
-completing in 10,627~ms total, yielding an average per-tile inference time of 2,657~ms
-consistent with Worker~1, confirming that per-tile inference time is stable and
+average per tile inference time of 2,657~ms. Worker~2 processed four tiles sequentially,
+completing in 10,627~ms total, yielding an average per tile inference time of 2,657~ms
+consistent with Worker~1, confirming that per tile inference time is stable and
 node-independent.
  
 The dominant contributor to this latency is PSRAM access speed. The tile extractor
@@ -277,10 +277,10 @@ activation tensors therefore reside in Octal PSRAM, which operates at
 significantly higher latency than internal \gls{sram} due to the SPI bus overhead
 and cache miss penalty. Internal \gls{sram} access on the ESP32-S3 operates at
 CPU speed ($\sim$4~ns at 240~MHz), whereas Octal PSRAM access incurs
-approximately 20--40 clock cycles of latency per access, producing the observed
-$\sim$2.66~s per-tile execution time compared to the sub-100~ms that would be expected
+approximately 20 to 40 clock cycles of latency per access, producing the observed
+$\sim$2.66~s per-tile execution time compared to the sub 100~ms that would be expected
 for an equivalent model running entirely from \gls{sram}.
-\Cref{tab:worker_inference} presents the per-tile inference breakdown.
+\Cref{tab:worker_inference} presents the per tile inference breakdown.
  
 \begin{table}[H]
 \renewcommand{\arraystretch}{1.25}
@@ -305,30 +305,30 @@ Float32 tensors remaining     & 0                           & 0                 
  
 \subsection{Feature Transmission: Worker Nodes to Aggregator}
  
-Each worker node transmits a 69-byte \textit{WorkerPayload} struct to the aggregator
+Each worker node transmits a 69 byte \textit{WorkerPayload} struct to the aggregator
 upon completing inference for each tile. The payload contains the tile ID (1~byte), raw
-attention logit (4~bytes as float32), and the quantised 64-dimensional feature vector
+attention logit (4~bytes as float32), and the quantised 64 dimensional feature vector
 (64~bytes as int8). At 69~bytes, this fits comfortably within a single \gls{esp}-NOW
 frame (250-byte maximum), requiring no fragmentation.
  
-The average one-way transmission delay per payload was measured at 472~ms using a
-round-trip ACK scheme with one-way delay estimated as RTT/2. This figure is
+The average one way transmission delay per payload was measured at 472~ms using a
+round trip ACK scheme with one way delay estimated as RTT/2. This figure is
 substantially higher than the theoretical \gls{esp}-NOW unicast latency of approximately
-2--5~ms and warrants explanation.
+2 to 5~ms and warrants explanation.
  
 The 472~ms figure reflects the queued transmission delay rather than raw channel latency.
 Because each worker node processes tiles sequentially and inference takes $\sim$2,657~ms
 per tile, payloads accumulate in the transmission queue during inference. The measured
-472~ms average therefore includes both the actual \gls{esp}-NOW channel time ($\sim$2--5~ms)
+472~ms average therefore includes both the actual \gls{esp}-NOW channel time ($\sim$2 to 5~ms)
 and the queuing delay imposed by the serialised inference pipeline. The true channel
-transmission time for a 69-byte \gls{esp}-NOW packet is sub-millisecond; the observed
-472~ms is a system-level metric reflecting the pacing of the inference pipeline rather
+transmission time for a 69 byte \gls{esp}-NOW packet is sub millisecond; the observed
+472~ms is a system level metric reflecting the pacing of the inference pipeline rather
 than a channel limitation.
  
 Total transmission time for all nine feature payloads (five from Worker~1 plus four from
 Worker~2) is approximately 4,248~ms ($9 \times 472$~ms), though in practice Worker~1
 and Worker~2 transmit in parallel once their respective inference completes, reducing
-the effective wall-clock transmission time to approximately
+the effective wall clock transmission time to approximately
 $\max(5,4) \times 472$~ms $= 2,360$~ms under ideal parallel operation.
  
 \subsection{Aggregator Node: Softmax, Weighted Sum, and Classification}
@@ -448,7 +448,7 @@ the layer completes.
 \subsection{Discussion: Performance Gap and Path to Real-Time Operation}
  
 The results show a clear and quantifiable performance gap between the current prototype and the real time target. The system is architecturally correct: all pipeline stages work as intended, data flows correctly between nodes, \gls{int8} inference produces valid outputs, and the aggregator correctly fuses nine partial representations into a binary decision. However, the system currently does not meet the latency requirements to operate in real-time at 1 \gls{fps}.
-The results clearly point the way to close this gap. To reduce per tile inference time from 2657 ms to <150~ms, either the tile extractor arena needs to fit entirely within internal \gls{sram} (a model with arena requirement of <∼180 KB can be achieved by reducing the channel count or by simplifying the architecture), or a hardware platform with faster external memory such as the \gls{esp}32-P4 (with its on-chip cache-backed PSRAM) needs to be used. Meanwhile, the 3,243~ms Worker~1 transmission bottleneck could be addressed by swapping out the sequential ACK based fragmentation scheme for a broadcast-based transmission or by increasing the \gls{esp}-NOW payload limit via custom fragmentation.
+The results clearly point the way to close this gap. To reduce per tile inference time from 2657 ms to <150~ms, either the tile extractor arena needs to fit entirely within internal \gls{sram} (a model with arena requirement of <∼180 KB can be achieved by reducing the channel count or by simplifying the architecture), or a hardware platform with faster external memory such as the \gls{esp}32-P4 (with its on chip cache backed PSRAM) needs to be used. Meanwhile, the 3,243~ms Worker~1 transmission bottleneck could be addressed by swapping out the sequential ACK based fragmentation scheme for a broadcast based transmission or by increasing the \gls{esp}-NOW payload limit via custom fragmentation.
 The aggregator node, with its 0.342~ms processing time and 4~KB model footprint, confirms that the fusion and classification stage of the architecture imposes essentially zero overhead and would remain viable even as the upstream pipeline is accelerated by one to two orders of magnitude.
 
  

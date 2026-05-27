@@ -1,9 +1,9 @@
 \chapter{REQUIREMENTS ANALYSIS}
 \label{chap:requirements}
 
-The development of a distributed, tile-based \gls{hpd} system requires a multi-faceted analysis of hardware constraints, software dependencies, and network reliability. The section below discusses the basic requirements needed for the project to be feasible.
+The development of a distributed, tile-based \gls{hpd} system requires a multi level analysis of hardware constraints, software dependencies, and network reliability. The section below discusses the basic requirements needed for the project to be feasible.
 \section{Hardware Requirements}
-Given the ESP32-S3 chip in the design, the choice of hardware is based on the speed-up and power consumption needs realted to \gls{ai}.
+Given the ESP32-S3 chip in the design, the choice of hardware is based on the speed up and power consumption needs realted to \gls{ai}.
 
 \begin{itemize}
     \item \textbf{Camera Module:} A high-resolution camera module(OV2640) capable of capturing images at higher resolution than traditional image processing systems, which will then be partitioned.
@@ -29,7 +29,7 @@ To achieve ultra-low bit quantization and distributed processing, the following 
 
 \section{Non-functional Requirements}
 \begin{itemize}
-    \item \textbf{Latency:} There will be low latency in order for this to be a real-time application.
+    \item \textbf{Latency:} There will be low latency in order for this to be a real time application.
     
     \item \textbf{Scalability:} This would require an adjustable number of nodes, depending on the
 level of resolution and required \gls{fps}.
