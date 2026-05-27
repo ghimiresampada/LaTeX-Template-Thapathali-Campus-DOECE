@@ -1,7 +1,7 @@
 \chapter{Introduction}
-Convolutional Neural Networks (CNNs) perform well at detecting objects in controlled environments. But moving to the real world, high-resolution processing is still a challenge when processing on edge system. Most small processors can’t store and process large images directly. A common way to handle this is to shrink the image before processing. This causes the loss of granular details that matter for accurate detection.‎ 
-This project draws inspiration from precision agriculture.There, large areas are analysed by breaking them into smaller sections and processing each one separately. We apply the same idea here, combined with distributed edge computing system, to build a practical solution for real-time Human Presence Detection (HPD).‎ 
-We chose HPD as our focus for a specific reason. Detecting people in large, open spaces requires fine visual details. Traditional downsampling destroys exactly that  granularity.
+\gls{cnn} perform well at detecting objects in controlled environments. But moving to the real world, high-resolution processing is still a challenge when processing on edge system. Most small processors can’t store and process large images directly. A common way to handle this is to shrink the image before processing. This causes the loss of granular details that matter for accurate detection.
+This project draws inspiration from precision agriculture.There, large areas are analysed by breaking them into smaller sections and processing each one separately. We apply the same idea here, combined with distributed edge computing system, to build a practical solution for real-time \gls{hpd}.
+We chose \gls{hpd} as our focus for a specific reason. Detecting people in large, open spaces requires fine visual details. Traditional downsampling destroys exactly that  granularity.
 Our approach splits a high-resolution frame into smaller tiles  then each tile is  processed by a  microcontroller spreading the workload across multiple devices instead of relying on a single powerful machine. As a result, we preserve the image quality needed to detect people reliably.
 This method also has practical benefits beyond accuracy as  all processing happens locally on the device. It reduces latency and keeps sensitive data from being sent to a central server, which is important for privacy.
 
@@ -9,7 +9,7 @@ This method also has practical benefits beyond accuracy as  all processing happe
 \section{Background}
 
 % Test abbreviations and symbols
-Common object detection models like You Only Look Once (YOLO) and Faster architecture like R-CNN are designed to work with small input images with sizes like  416×416 or 640×640 pixels. However, cameras used in surveillance or agricultural automation can capture images as large as 4000×3000 pixels which is nearly ten times larger than what these models expect. 
+Common object detection models like \gls{yolo} and Faster architecture like R-CNN are designed to work with small input images with sizes like  416×416 or 640×640 pixels. However, cameras used in surveillance or agricultural automation can capture images as large as 4000×3000 pixels which is nearly ten times larger than what these models expect. 
 
 
 \subsection*{The Problem of Vanishing Detail}
@@ -41,20 +41,20 @@ But even these edge devices have limits. Modern AI models are growing more compl
 Modern cameras are getting better and better as 4K and 8K sensors are now common in security and industrial monitoring. But AI models have not kept up. Most high performance models still expect small, fixed size inputs. This gap is the core motivation for this research.
 Currently, there are two common ways to deal with this mismatch but neither works well.
 The first option is to shrink the image size. This is rapid and cheap, but it removes fine details. Small or distant subjects become impossible to detect reliably.
-The second option is to use more powerful hardware. \gsls{gpu} can handle large images, but they consume a lot of power. This makes them unsuitable for remote locations or battery powered devices.
+The second option is to use more powerful hardware. \gls{gpu} can handle large images, but they consume a lot of power. This makes them unsuitable for remote locations or battery powered devices.
 So some middle ground is needed. his research aims to build  an architecture that keeps the full detail of the original image, while distributing the processing load across multiple small, affordable devices.
 
 
 \section{Problem Definition}
 This research addresses a core problem in high resolution computer vision. As cameras get better and better, the gap between how much data they capture and speed of processing keeps growing. This is sometimes called the Information Computation Paradox. It breaks down into three specific problems.
-\textbf{The Scaling Bottleneck and Receptive Field Constraints:}Most \gls{cnn} models like ResNet or \gls{yolo} expect a fixed input size, typically 416×416 or 640×640 pixels \cite{luo2016understanding} . When a 4K video frame is forced into that size, the image must be heavily resized. This resizing acts like a filter by smoothing out fine details and removes the sharp edges that define small objects. The result is that the region a \gls{cnn} focuses on becomes larger than the object it is trying to find. The network fails to detect it \cite{luo2016understanding}.
+
+\textbf{The Scaling Bottleneck and Receptive Field Constraints:} Most \gls{cnn} models like ResNet or \gls{yolo} expect a fixed input size, typically 416×416 or 640×640 pixels \cite{luo2016understanding} . When a 4K video frame is forced into that size, the image must be heavily resized. This resizing acts like a filter by smoothing out fine details and removes the sharp edges that define small objects. The result is that the region a \gls{cnn} focuses on becomes larger than the object it is trying to find. The network fails to detect it \cite{luo2016understanding}.
 
 
-\textbf{Hardware and Memory Constraints:}Edge devices are small and have limited memory so running a large AI model directly on one while also holding a high  resolution image in memory is often not possible. The device either crashes with an Out of Memory (OOM) error or slows down due to overheating. There are currently no widely adopted frameworks that allow a single inference task to be split spatially across a group of low power devices \cite{hadidi2019distributed}.
+\textbf{Hardware and Memory Constraints:} Edge devices are small and have limited memory so running a large AI model directly on one while also holding a high  resolution image in memory is often not possible. The device either crashes with an Out of Memory (OOM) error or slows down due to overheating. There are currently no widely adopted frameworks that allow a single inference task to be split spatially across a group of low power devices \cite{hadidi2019distributed}.
 
 \textbf{The Aggregation Challenge:} Splitting an image into tiles creates a new problem at the boundaries. A person standing at the edge of a tile may appear partially in two or four neighbouring tiles. No single device sees the full picture. The challenge is therefore not just how to split the image, but how to design an Aggregator that can combine the partial results from each tile into one reliable detection, without requiring a powerful central machine to do it \cite{sahi2022_overlap}. 
 
-\newpage
 \section{Objectives}
 \begin{itemize}
     \item To develop a light-weight model architecture to process a high resolution image by dividing into low-resolution tiles.
@@ -67,8 +67,9 @@ By making high resolution sensing possible on affordable, low-power hardware, th
 
 \begin{itemize} 
 \item \textbf{High-Precision Industrial Safety:} Large factory floors need constant monitoring. Small but dangerous events, such as a hand getting too close to moving machinery, must be caught early. This system can detect such events at high resolution without the need for expensive industrial computers.
-\item \textbf{Privacy-Preserving Smart Homes:}Because each tile is processed locally and only the final results are shared, raw images never leave the device. This makes the system a good fit for home presence sensing and elderly care, where privacy is a major priority.
-\item \textbf{Intelligent Energy Management of \gls{hvac} Systems:} Large offices and commercial buildings need accurate occupancy data to manage their Heating, Ventilation, and Air Conditioning \gls{hvac} systems efficiently. Traditional Passive Infrared \gls{pir} sensors struggle to detect people who are sitting still to solve this a distributed CNN based system can detect occupants regardless of whether they are moving or stationary. This information can be fed directly into a Building Management System (BMS), allowing the HVAC system to adjust airflow and temperature room by room in real time.
 
+\item \textbf{Privacy-Preserving Smart Homes:}Because each tile is processed locally and only the final results are shared, raw images never leave the device. This makes the system a good fit for home presence sensing and elderly care, where privacy is a major priority.
+
+\item \textbf{Intelligent Energy Management of \gls{hvac} Systems:} Large offices and commercial buildings need accurate occupancy data to manage their Heating, Ventilation, and Air Conditioning \gls{hvac} systems efficiently. Traditional Passive Infrared \gls{pir} sensors struggle to detect people who are sitting still to solve this a distributed CNN based system can detect occupants regardless of whether they are moving or stationary. This information can be fed directly into a Building Management System (BMS), allowing the HVAC system to adjust airflow and temperature room by room in real time.
 \end{itemize}
 This study focuses on static or slow-moving subjects. The system works best in scenes where changes happen slowly enough that the processing delay does not cause missed detections.

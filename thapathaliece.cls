@@ -106,7 +106,7 @@
 \RequirePackage{datetime2}      % For date management
 \RequirePackage{textcase}       % For managing text-cases
 \RequirePackage{multicol}       % For multi-column use
-\RequirePackage[subpreambles=true]{standalone}     % Standalone figures use their own preambles
+\RequirePackage[subpreambles=false]{standalone}     % Standalone figures use their own preambles
 
 % LISTS
 \RequirePackage{enumitem}
