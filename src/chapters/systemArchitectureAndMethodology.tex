@@ -1,10 +1,10 @@
 \chapter{SYSTEM ARCHITECTURE AND METHODOLOGY}
 \section{Model Selection and Optimization Pipeline}
 \subsection{MobileNetV2 Architecture}
-The proposed system leverages a \gls{cnn} based on a mobilenetv2 backbone, specifically optimized for binary classification tasks where $f_{\theta} : \mathbb{R}^{N \times 1 \times H \times W} \to \mathbb{R}^{N \times 2}$. The architecture is designed to balance high level feature extraction with the strict hardware constraints of \glspl{mcu}.
+The proposed architecture uses a \gls{cnn} model based on mobilenetv2 with optimization for binary classification, which is expressed mathematically $f_{\theta} : \mathbb{R}^{N \times 1 \times H \times W} \to \mathbb{R}^{N \times 2}$. The design incorporates a compromise between deep feature extraction and \gls{mcu} hardware limitations.
 
 \subsection*{Grayscale Adaptation and Transfer Learning}
-To minimize memory consumption and computational latency, the model is adapted to process single channel grayscale images. Since the pretrained weights were originally optimized for rgb data, the first convolution layer's weights ($W \in \mathbb{R}^{C_{out} \times 3 \times k \times k}$) are averaged across the channel dimension:
+To reduce memory usage and improve computation time, the model is adjusted to handle single-channel images. As the weights of the model were initially trained on RGB images, the first convolutional layer weights ($W \in \mathbb{R}^{C_{out} \times 3 \times k \times k}$) are averaged across the channel dimension:
 \begin{equation}
     \label{eq:greyscale}
     Y = 0.299R + 0.587G + 0.114B
@@ -230,20 +230,19 @@ and ESP32-S3 \gls{mcu}. In order to maximize efficiency and take advantage of li
     \label{fig:detailed_workflow}
 \end{figure}
 \subsection{Input Layer}
-Centered around an ESP32-CAM\cite{dfrobot2024ens160}, this layer manages high bandwidth data acquisition and initial pre processing. Its primary role is to prepare and distribute workloads to the processing tier through the following pipeline:
+Centered around an ESP32 CAM\cite{dfrobot2024ens160}, this layer manages high bandwidth data acquisition and initial pre processing. Its primary role is to prepare and distribute workloads to the processing tier through the following pipeline:
 % \subsubsection{\textbf{Temporal Downsampling}}
 % The raw input from the ESP32-CAM typically operates at a higher frame rate (e.g., 10 - 15 \gls{fps}) than the backend processing can handle. The input node implements a timer-driven interrupt to capture exactly 1 frame every 1000 \gls{ms}.
 
 \subsubsection{\textbf{Luminance Conversion (Grayscale)}}
-Processing three channel RGB data significantly inflates the memory buffer requirements and computational complexity ($O(3n)$ vs $O(n)$). The captured frame has to be converted to an 8 bit grayscale format using a weighted luminance formula as given in \eqref{eq:42}  \cite{itu2011bt601}.
+The processing of three-channel data requires higher memory buffers  ($O(3n)$ vs $O(n)$).This frame will have to be translated into an 8-bit grayscale format using the luminance weight formula as specified in equation \eqref{eq:42}  \cite{itu2011bt601}.
 \begin{equation}
     \label{eq:42}
     P(y = 1 \mid x) = \frac{e^{z_{\text{person}}}}{e^{z_{\text{bg}}} + e^{z_{\text{person}}}}
 \end{equation}
 % \cite{goodfellow2016deep}
 Where $z_{\text{person}}$ and $z_{\text{bg}}$ represents the logits corresponding to \textit{person} and \textit{background} class,
-respectively. Data compression reduces the input data volume by 66.6\%, hence
-leaving more room for heap memory allocation for tiling and transmission buffers.
+respectively. Data compression reduces the input data volume by 66.6\%, creating more room for heap memory allocation for tiling and transmission buffers.
 \begin{equation}
     \label{eq:greyscale}
     Y = 0.299R + 0.587G + 0.114B
@@ -255,10 +254,10 @@ leaving more room for heap memory allocation for tiling and transmission buffers
 %     \label{fig: RGB to Grayscale}
 % \end{figure}
 \subsubsection{\textbf{Partitioning Distribution}}
-The process begins with the Tiling module, which extracts $n$ overlapping tiles from the source image. This step is critical for maintaining high resolution features on resource constrained hardware. By using a 25\% overlap between adjacent tiles, the system ensures that human subjects positioned at tile boundaries are not bisected, preserving spatial continuity for the feature extractor.
+Tiling stage involves the use of the Tiling module to select $n$ overlapping tiles from the input image. The importance of this stage cannot be underestimated since it is vital in ensuring that important high-resolution information is retained within the resource-limited computing system. With an overlap ratio of 25\%, this helps preserve humans located on the boundary of two tiles.
 
 \subsection{Communication Protocol Implementation}
-The \gls{esp} protocol will be the communication backbone\cite{espnow_doc}, selected for its highly efficient, peer to peer data exchange capabilities and low latency feedback. While \gls{esp} is efficient, its throughput is limited (observed maximums up to 771 \gls{kb}/s). Therefore, the implementation will rely on efficient data packing, ensuring that tile data transfer maximizes the available throughput and that result packets adhere to the small packet size limits ($<250$ bytes for control and aggregation data). The ability to transfer data quickly is paramount, as the latency gained by parallel processing can be quickly lost if the communication time dominates the total system latency.
+The \gls{esp} protocol will be the communication backbone\cite{espnow_doc},Selected due to high efficiency in transferring data through peer-to-peer interaction and low latency feedback. Though ESP is efficient, its bandwidth is limited up to a maximum of $771$ \gls{kb}/s. In this regard, efficient packing of data becomes crucial since the throughput capacity will dictate how fast the tile data transfer takes place while the results packets will comply with the packet size constraints less than $250$ bytes. It is important that data transfer occurs quickly since the gains from parallel processing could be offset by the time required for communicating.
 
 
 \subsection{Feature Extraction Layer}
@@ -339,8 +338,7 @@ SCL                  & GPIO22             & Clock Line           \\ \hline
 All hardware components in the system are powered through USB connections using a laptop During development and testing, the laptop provides stable 5V power supply to the ESP32-CAM, ESP32-S3 and ESP32 boards. 
 \subsection{Low Bit Quantization Implementation}
 The baseline operational model will use Post training Quantization (PTQ) to convert the HPD model to symmetric 8 bit Integer (INT8) weights and asymmetric INT8 activations. 
-Further optimization will involve the experimental deployment of \gls{int4} quantization for specific non critical layers. This mixed precision approach will push memory reduction to its architectural limits, targeting a final Flash footprint of $<1.0$ \gls{mb}.
-To compensate for the precision loss due to such aggressive compression, calibration datasets will be used along with layer wise equalization techniques. These methods balance weight ranges in the custom architecture with the aim of maximal accuracy retention less than $90\%$ of the pruned 32-bit Floating Point \gls{fp32} baseline. This optimization is necessary to provide a robust model for presence detection, and to fit within the 512 \gls{kb} \gls{sram} limit.
+Further optimization will involve the experimental deployment of \gls{int4} quantization for specific non critical layers. This particular strategy will bring the use of memory to its barest minimum and achieve an ultimate Flash utilization that is less than $1.0$ \gls{mb}. This will require us to compensate for precision degradation through use of calibration data as well as equalization of the weights within each layer to minimize precision degradation to a level that is not more than $90\%$ of the pruned 32-bit Floating Point \gls{fp32}. The justification for this strategy is that it allows creation of a reliable model and fits within 512 \gls{kb} \gls{sram}.
 
 \section{Evaluation Metrics and Performance Framework}
 \subsection{Detection Reliability Matrix (The Deep Learning Layer)}

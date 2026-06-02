@@ -270,16 +270,7 @@ completing in 10,627~ms total, yielding an average per tile inference time of 2,
 consistent with Worker~1, confirming that per tile inference time is stable and
 node-independent.
  
-The dominant contributor to this latency is PSRAM access speed. The tile extractor
-requires a minimum arena of 451~\gls{kb}, which exceeds the ESP32-S3's available
-internal \gls{sram} ($\sim$180~\gls{kb} free after system allocation). All intermediate
-activation tensors therefore reside in Octal PSRAM, which operates at
-significantly higher latency than internal \gls{sram} due to the SPI bus overhead
-and cache miss penalty. Internal \gls{sram} access on the ESP32-S3 operates at
-CPU speed ($\sim$4~ns at 240~MHz), whereas Octal PSRAM access incurs
-approximately 20 to 40 clock cycles of latency per access, producing the observed
-$\sim$2.66~s per-tile execution time compared to the sub 100~ms that would be expected
-for an equivalent model running entirely from \gls{sram}.
+The major source of such latency is the performance of PSRAM read operations. The required size of the arena is 451~\gls{kb} which surpasses the internal \gls{sram} capacity of the ESP32-S3 board available after system allocations ($\sim$180~\gls{kb}). Consequently, all intermediate activations tensors have to be stored in Octal PSRAM which introduces higher latency compared to accessing internal \gls{sram} because of the higher latencies of accessing Octal PSRAM via the SPI bus and the penalty for missing the cache. Accessing \gls{sram} on the ESP32-S3 runs at the same rate as the CPU ($\sim$4~ns on 240~MHz), while PSRAM access introduces a latency of about 20 to 40 clock cycles resulting in the observed $\sim$2.66~s per-tile compared to 100~ms when using \gls{sram}.
 \Cref{tab:worker_inference} presents the per tile inference breakdown.
  
 \begin{table}[H]
@@ -308,20 +299,20 @@ Float32 tensors remaining     & 0                           & 0                 
 Each worker node transmits a 69 byte \textit{WorkerPayload} struct to the aggregator
 upon completing inference for each tile. The payload contains the tile ID (1~byte), raw
 attention logit (4~bytes as float32), and the quantised 64 dimensional feature vector
-(64~bytes as int8). At 69~bytes, this fits comfortably within a single \gls{esp}-NOW
-frame (250-byte maximum), requiring no fragmentation.
+(64~bytes as int8). At 69~bytes, this fits comfortably within a single \gls{esp} NOW
+frame (250 byte maximum), requiring no fragmentation.
  
 The average one way transmission delay per payload was measured at 472~ms using a
 round trip ACK scheme with one way delay estimated as RTT/2. This figure is
-substantially higher than the theoretical \gls{esp}-NOW unicast latency of approximately
+substantially higher than the theoretical \gls{esp} NOW unicast latency of approximately
 2 to 5~ms and warrants explanation.
  
 The 472~ms figure reflects the queued transmission delay rather than raw channel latency.
 Because each worker node processes tiles sequentially and inference takes $\sim$2,657~ms
 per tile, payloads accumulate in the transmission queue during inference. The measured
-472~ms average therefore includes both the actual \gls{esp}-NOW channel time ($\sim$2 to 5~ms)
+472~ms average therefore includes both the actual \gls{esp} NOW channel time ($\sim$2 to 5~ms)
 and the queuing delay imposed by the serialised inference pipeline. The true channel
-transmission time for a 69 byte \gls{esp}-NOW packet is sub millisecond; the observed
+transmission time for a 69 byte \gls{esp} NOW packet is sub millisecond; the observed
 472~ms is a system level metric reflecting the pacing of the inference pipeline rather
 than a channel limitation.
  
