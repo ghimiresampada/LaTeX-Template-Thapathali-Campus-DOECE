@@ -23,17 +23,15 @@ To achieve ultra-low bit quantization and distributed processing, the following 
 
     \item \textbf{Model Optimization:} Initial training and conversion of models with \gls{tfml} are followed by \gls{qat}.
     
-    \item \textbf{Tiling Logic:} A custom C++ pre-processing module to handle spatial partitioning and memory-safe buffer management for individual tiles.
+    \item \textbf{Tiling Logic:} A custom written algorithm to handle the tiling of image and memory management for each note processing the tile.
 \end{itemize}
 
 
 \section{Non-functional Requirements}
 \begin{itemize}
-    \item \textbf{Latency:} There will be low latency in order for this to be a real time application.
+    \item \textbf{Latency:} Low latancy is required for a real time system.
     
-    \item \textbf{Scalability:} This would require an adjustable number of nodes, depending on the
-level of resolution and required \gls{fps}.
+    \item \textbf{Scalability:} The number of processing note should be adjustable insted of rigid as per level of resolution and required \gls{fps}.
     
-    \item \textbf{Robustness:} If one of the nodes is no longer working, it will need to fall back to the other nodes
-to get partial occupancy information.
+    \item \textbf{Robustness:} Failure of a single interdimiate processing node should not impace the processing and it shouls adjust to the available working nodes.
 \end{itemize}
